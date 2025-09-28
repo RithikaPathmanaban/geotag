@@ -1,75 +1,91 @@
-<!-- Only script section is updated here -->
-<script>
 let map, userMarker, watchId;
 let taggedPoints = [];
 let taggedMarkers = [];
-let taggedRouteLine = null;
 let routingControl = null;
 let pinMode = false;
 let savedRoutes = {};
 let isNavigating = false;
 
 // Icons
-const redIcon = L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png", iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34] });
-const taggedIcon = L.icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30] });
+const redIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+const taggedIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+  popupAnchor: [0, -30],
+});
 
 // Initialize map
-function initMap(){
-  map = L.map("map").setView([10.7905,78.7047],14);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap contributors"}).addTo(map);
+function initMap() {
+  map = L.map("map").setView([10.7905, 78.7047], 14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors",
+  }).addTo(map);
 
-  map.on("click", function(e){
-    if(!pinMode) return;
-    addTaggedPoint([e.latlng.lat,e.latlng.lng],"Pinned Point " + (taggedPoints.length+1));
+  map.on("click", function (e) {
+    if (!pinMode) return;
+    addTaggedPoint([e.latlng.lat, e.latlng.lng], "Pinned Point " + (taggedPoints.length + 1));
   });
 }
 
 // Add tagged point
-function addTaggedPoint(latlng,label){
+function addTaggedPoint(latlng, label) {
   taggedPoints.push(latlng);
-  const marker = L.marker(latlng,{icon:taggedIcon}).addTo(map).bindPopup(label);
+  const marker = L.marker(latlng, { icon: taggedIcon }).addTo(map).bindPopup(label);
   marker.openPopup();
   taggedMarkers.push(marker);
 }
 
 // Update user location
-function updateUserLocation(pos){
+function updateUserLocation(pos) {
   const lat = pos.coords.latitude;
   const lng = pos.coords.longitude;
   document.getElementById("latField").value = lat.toFixed(6);
   document.getElementById("lngField").value = lng.toFixed(6);
 
-  if(userMarker) userMarker.setLatLng([lat,lng]);
-  else userMarker = L.marker([lat,lng],{icon:redIcon}).addTo(map).bindPopup("You are here").openPopup();
+  if (userMarker) userMarker.setLatLng([lat, lng]);
+  else userMarker = L.marker([lat, lng], { icon: redIcon }).addTo(map).bindPopup("You are here").openPopup();
 
-  map.panTo([lat,lng]);
+  map.panTo([lat, lng]);
 
-  // If navigation active, update route dynamically
-  if(isNavigating) recalcNavigation([lat,lng]);
+  if (isNavigating) recalcNavigation([lat, lng]);
 }
 
 // Pin mode toggle
-document.getElementById("pinModeBtn").addEventListener("click",()=>{
+document.getElementById("pinModeBtn").addEventListener("click", () => {
   pinMode = !pinMode;
-  document.getElementById("pinModeBtn").textContent = pinMode?"Disable Pin Mode":"Enable Pin Mode";
+  document.getElementById("pinModeBtn").textContent = pinMode ? "Disable Pin Mode" : "Enable Pin Mode";
 });
 
 // Clear route
-document.getElementById("btnClearTags").addEventListener("click",()=>{
+document.getElementById("btnClearTags").addEventListener("click", () => {
   taggedPoints = [];
-  taggedMarkers.forEach(m=>map.removeLayer(m));
-  taggedMarkers=[];
-  if(taggedRouteLine) map.removeLayer(taggedRouteLine);
-  taggedRouteLine=null;
-  if(routingControl){ map.removeControl(routingControl); routingControl=null; }
-  isNavigating=false;
+  taggedMarkers.forEach((m) => map.removeLayer(m));
+  taggedMarkers = [];
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
+  }
+  isNavigating = false;
 });
 
 // Save route
-document.getElementById("btnSaveRoute").addEventListener("click",()=>{
+document.getElementById("btnSaveRoute").addEventListener("click", () => {
   const name = document.getElementById("routeNameInput").value.trim();
-  if(!name){ alert("Enter route name"); return;}
-  if(taggedPoints.length<2){ alert("Pin at least 2 points"); return;}
+  if (!name) {
+    alert("Enter route name");
+    return;
+  }
+  if (taggedPoints.length < 2) {
+    alert("Pin at least 2 points");
+    return;
+  }
   savedRoutes[name] = taggedPoints.slice();
   localStorage.setItem("savedRoutes", JSON.stringify(savedRoutes));
   updateSavedRoutesDropdown();
@@ -77,49 +93,64 @@ document.getElementById("btnSaveRoute").addEventListener("click",()=>{
   alert("Route saved");
 });
 
-// Load saved routes dropdown
-function loadSavedRoutes(){
+// Load saved routes from localStorage
+function loadSavedRoutes() {
   const saved = localStorage.getItem("savedRoutes");
-  if(saved){ savedRoutes = JSON.parse(saved); updateSavedRoutesDropdown(); }
+  if (saved) {
+    savedRoutes = JSON.parse(saved);
+    updateSavedRoutesDropdown();
+  }
 }
-function updateSavedRoutesDropdown(){
+
+// Update saved routes dropdown
+function updateSavedRoutesDropdown() {
   const dropdown = document.getElementById("savedRoutesDropdown");
   dropdown.innerHTML = '<option value="">Select a saved route</option>';
-  Object.keys(savedRoutes).forEach(name=>{
+  Object.keys(savedRoutes).forEach((name) => {
     const option = document.createElement("option");
-    option.value = name; option.textContent=name;
+    option.value = name;
+    option.textContent = name;
     dropdown.appendChild(option);
   });
 }
 
 // Load selected route
-document.getElementById("savedRoutesDropdown").addEventListener("change",()=>{
+document.getElementById("savedRoutesDropdown").addEventListener("change", () => {
   const name = document.getElementById("savedRoutesDropdown").value;
-  if(!name) return;
+  if (!name) return;
+
   taggedPoints = savedRoutes[name].slice();
-  taggedMarkers.forEach(m=>map.removeLayer(m));
-  taggedMarkers=[];
-  taggedPoints.forEach((p,i)=>{
-    const marker = L.marker(p,{icon:taggedIcon}).addTo(map).bindPopup("Point "+(i+1));
+  taggedMarkers.forEach((m) => map.removeLayer(m));
+  taggedMarkers = [];
+  taggedPoints.forEach((p, i) => {
+    const marker = L.marker(p, { icon: taggedIcon }).addTo(map).bindPopup("Point " + (i + 1));
     taggedMarkers.push(marker);
   });
-  if(taggedRouteLine) map.removeLayer(taggedRouteLine);
-  taggedRouteLine = L.polyline(taggedPoints,{color:'green',weight:4}).addTo(map);
-  map.fitBounds(taggedRouteLine.getBounds(),{padding:[30,30]});
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
+  }
+  // Fit map to route bounds
+  const bounds = L.latLngBounds(taggedPoints);
+  map.fitBounds(bounds, { padding: [30, 30] });
 });
 
 // TSP optimization (nearest neighbour)
-function optimizeRoute(start, points){
+function optimizeRoute(start, points) {
   const remaining = points.slice();
   const ordered = [];
   let current = start;
-  while(remaining.length>0){
-    let minIdx=0, minDist=haversineDistance(current,remaining[0]);
-    for(let i=1;i<remaining.length;i++){
-      const dist=haversineDistance(current,remaining[i]);
-      if(dist<minDist){ minDist=dist; minIdx=i; }
+  while (remaining.length > 0) {
+    let minIdx = 0,
+      minDist = haversineDistance(current, remaining[0]);
+    for (let i = 1; i < remaining.length; i++) {
+      const dist = haversineDistance(current, remaining[i]);
+      if (dist < minDist) {
+        minDist = dist;
+        minIdx = i;
+      }
     }
-    const next = remaining.splice(minIdx,1)[0];
+    const next = remaining.splice(minIdx, 1)[0];
     ordered.push(next);
     current = next;
   }
@@ -127,226 +158,70 @@ function optimizeRoute(start, points){
 }
 
 // Haversine distance
-function haversineDistance(a,b){
-  const R=6371000;
-  const lat1=a[0]*Math.PI/180, lat2=b[0]*Math.PI/180;
-  const dLat=lat2-lat1, dLon=(b[1]-a[1])*Math.PI/180;
-  const x=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+function haversineDistance(a, b) {
+  const R = 6371000; // meters
+  const lat1 = (a[0] * Math.PI) / 180,
+    lat2 = (b[0] * Math.PI) / 180;
+  const dLat = lat2 - lat1,
+    dLon = ((b[1] - a[1]) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
-// Start Navigation
-document.getElementById("btnStartNavigation").addEventListener("click",()=>{
-  if(taggedPoints.length<1){ alert("No points to navigate"); return; }
-  if(!userMarker){ alert("User location not found"); return; }
-
-  isNavigating = true;
-  recalcNavigation([userMarker.getLatLng().lat,userMarker.getLatLng().lng]);
-});
-
-// Recalculate navigation dynamically
-function recalcNavigation(currentLocation){
-  if(taggedPoints.length<1) return;
-  const orderedPoints = optimizeRoute(currentLocation, taggedPoints);
-  const waypoints = [L.latLng(...currentLocation)];
-  orderedPoints.forEach(p=>waypoints.push(L.latLng(...p)));
-
-  if(routingControl){ map.removeControl(routingControl); routingControl=null; }
-
-  routingControl = L.Routing.control({
-    waypoints: waypoints,
-    router: L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'}),
-    lineOptions: {styles:[{color:'green',weight:5}]},
-    createMarker: function(i,wp,n){ return L.marker(wp.latLng,i===0?{icon:redIcon}:{icon:taggedIcon}); },
-    addWaypoints:false,
-    fitSelectedRoutes:true,
-    draggableWaypoints:false,
-    routeWhileDragging:false
-  }).addTo(map);
-}
-
-// Watch user location
-if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(updateUserLocation);
-  watchId = navigator.geolocation.watchPosition(updateUserLocation);
-}
-
-initMap();
-loadSavedRoutes();
-</script>
-<!-- Only script section is updated here -->
-<script>
-let map, userMarker, watchId;
-let taggedPoints = [];
-let taggedMarkers = [];
-let taggedRouteLine = null;
-let routingControl = null;
-let pinMode = false;
-let savedRoutes = {};
-let isNavigating = false;
-
-// Icons
-const redIcon = L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png", iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34] });
-const taggedIcon = L.icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30] });
-
-// Initialize map
-function initMap(){
-  map = L.map("map").setView([10.7905,78.7047],14);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap contributors"}).addTo(map);
-
-  map.on("click", function(e){
-    if(!pinMode) return;
-    addTaggedPoint([e.latlng.lat,e.latlng.lng],"Pinned Point " + (taggedPoints.length+1));
-  });
-}
-
-// Add tagged point
-function addTaggedPoint(latlng,label){
-  taggedPoints.push(latlng);
-  const marker = L.marker(latlng,{icon:taggedIcon}).addTo(map).bindPopup(label);
-  marker.openPopup();
-  taggedMarkers.push(marker);
-}
-
-// Update user location
-function updateUserLocation(pos){
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
-  document.getElementById("latField").value = lat.toFixed(6);
-  document.getElementById("lngField").value = lng.toFixed(6);
-
-  if(userMarker) userMarker.setLatLng([lat,lng]);
-  else userMarker = L.marker([lat,lng],{icon:redIcon}).addTo(map).bindPopup("You are here").openPopup();
-
-  map.panTo([lat,lng]);
-
-  // If navigation active, update route dynamically
-  if(isNavigating) recalcNavigation([lat,lng]);
-}
-
-// Pin mode toggle
-document.getElementById("pinModeBtn").addEventListener("click",()=>{
-  pinMode = !pinMode;
-  document.getElementById("pinModeBtn").textContent = pinMode?"Disable Pin Mode":"Enable Pin Mode";
-});
-
-// Clear route
-document.getElementById("btnClearTags").addEventListener("click",()=>{
-  taggedPoints = [];
-  taggedMarkers.forEach(m=>map.removeLayer(m));
-  taggedMarkers=[];
-  if(taggedRouteLine) map.removeLayer(taggedRouteLine);
-  taggedRouteLine=null;
-  if(routingControl){ map.removeControl(routingControl); routingControl=null; }
-  isNavigating=false;
-});
-
-// Save route
-document.getElementById("btnSaveRoute").addEventListener("click",()=>{
-  const name = document.getElementById("routeNameInput").value.trim();
-  if(!name){ alert("Enter route name"); return;}
-  if(taggedPoints.length<2){ alert("Pin at least 2 points"); return;}
-  savedRoutes[name] = taggedPoints.slice();
-  localStorage.setItem("savedRoutes", JSON.stringify(savedRoutes));
-  updateSavedRoutesDropdown();
-  document.getElementById("routeNameInput").value = "";
-  alert("Route saved");
-});
-
-// Load saved routes dropdown
-function loadSavedRoutes(){
-  const saved = localStorage.getItem("savedRoutes");
-  if(saved){ savedRoutes = JSON.parse(saved); updateSavedRoutesDropdown(); }
-}
-function updateSavedRoutesDropdown(){
-  const dropdown = document.getElementById("savedRoutesDropdown");
-  dropdown.innerHTML = '<option value="">Select a saved route</option>';
-  Object.keys(savedRoutes).forEach(name=>{
-    const option = document.createElement("option");
-    option.value = name; option.textContent=name;
-    dropdown.appendChild(option);
-  });
-}
-
-// Load selected route
-document.getElementById("savedRoutesDropdown").addEventListener("change",()=>{
-  const name = document.getElementById("savedRoutesDropdown").value;
-  if(!name) return;
-  taggedPoints = savedRoutes[name].slice();
-  taggedMarkers.forEach(m=>map.removeLayer(m));
-  taggedMarkers=[];
-  taggedPoints.forEach((p,i)=>{
-    const marker = L.marker(p,{icon:taggedIcon}).addTo(map).bindPopup("Point "+(i+1));
-    taggedMarkers.push(marker);
-  });
-  if(taggedRouteLine) map.removeLayer(taggedRouteLine);
-  taggedRouteLine = L.polyline(taggedPoints,{color:'green',weight:4}).addTo(map);
-  map.fitBounds(taggedRouteLine.getBounds(),{padding:[30,30]});
-});
-
-// TSP optimization (nearest neighbour)
-function optimizeRoute(start, points){
-  const remaining = points.slice();
-  const ordered = [];
-  let current = start;
-  while(remaining.length>0){
-    let minIdx=0, minDist=haversineDistance(current,remaining[0]);
-    for(let i=1;i<remaining.length;i++){
-      const dist=haversineDistance(current,remaining[i]);
-      if(dist<minDist){ minDist=dist; minIdx=i; }
-    }
-    const next = remaining.splice(minIdx,1)[0];
-    ordered.push(next);
-    current = next;
+// Start Navigation button
+document.getElementById("btnStartNavigation").addEventListener("click", () => {
+  if (taggedPoints.length < 1) {
+    alert("No points to navigate");
+    return;
   }
-  return ordered;
-}
-
-// Haversine distance
-function haversineDistance(a,b){
-  const R=6371000;
-  const lat1=a[0]*Math.PI/180, lat2=b[0]*Math.PI/180;
-  const dLat=lat2-lat1, dLon=(b[1]-a[1])*Math.PI/180;
-  const x=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
-}
-
-// Start Navigation
-document.getElementById("btnStartNavigation").addEventListener("click",()=>{
-  if(taggedPoints.length<1){ alert("No points to navigate"); return; }
-  if(!userMarker){ alert("User location not found"); return; }
+  if (!userMarker) {
+    alert("User location not found");
+    return;
+  }
 
   isNavigating = true;
-  recalcNavigation([userMarker.getLatLng().lat,userMarker.getLatLng().lng]);
+  recalcNavigation([userMarker.getLatLng().lat, userMarker.getLatLng().lng]);
 });
 
-// Recalculate navigation dynamically
-function recalcNavigation(currentLocation){
-  if(taggedPoints.length<1) return;
+// Recalculate navigation dynamically without polylines or instructions
+function recalcNavigation(currentLocation) {
+  if (taggedPoints.length < 1) return;
   const orderedPoints = optimizeRoute(currentLocation, taggedPoints);
   const waypoints = [L.latLng(...currentLocation)];
-  orderedPoints.forEach(p=>waypoints.push(L.latLng(...p)));
+  orderedPoints.forEach((p) => waypoints.push(L.latLng(...p)));
 
-  if(routingControl){ map.removeControl(routingControl); routingControl=null; }
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
+  }
 
   routingControl = L.Routing.control({
     waypoints: waypoints,
-    router: L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'}),
-    lineOptions: {styles:[{color:'green',weight:5}]},
-    createMarker: function(i,wp,n){ return L.marker(wp.latLng,i===0?{icon:redIcon}:{icon:taggedIcon}); },
-    addWaypoints:false,
-    fitSelectedRoutes:true,
-    draggableWaypoints:false,
-    routeWhileDragging:false
+    router: L.Routing.osrmv1({
+      serviceUrl: "https://router.project-osrm.org/route/v1",
+    }),
+    lineOptions: {
+      styles: [{ color: "green", weight: 0, opacity: 0 }], // invisible polyline
+    },
+    createMarker: function (i, wp, n) {
+      return L.marker(wp.latLng, i === 0 ? { icon: redIcon } : { icon: taggedIcon });
+    },
+    addWaypoints: false,
+    fitSelectedRoutes: true,
+    draggableWaypoints: false,
+    routeWhileDragging: false,
+    show: false, // hides instructions panel
+    containerClassName: "leaflet-routing-container-hide", // hide UI container
   }).addTo(map);
 }
 
 // Watch user location
-if(navigator.geolocation){
+if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(updateUserLocation);
   watchId = navigator.geolocation.watchPosition(updateUserLocation);
 }
 
 initMap();
 loadSavedRoutes();
-</script>
