@@ -185,9 +185,9 @@ document.getElementById("btnStartNavigation").addEventListener("click", () => {
   recalcNavigation([userMarker.getLatLng().lat, userMarker.getLatLng().lng]);
 });
 
-// Recalculate navigation dynamically without polylines or instructions
 function recalcNavigation(currentLocation) {
   if (taggedPoints.length < 1) return;
+  
   const orderedPoints = optimizeRoute(currentLocation, taggedPoints);
   const waypoints = [L.latLng(...currentLocation)];
   orderedPoints.forEach((p) => waypoints.push(L.latLng(...p)));
@@ -201,21 +201,24 @@ function recalcNavigation(currentLocation) {
     waypoints: waypoints,
     router: L.Routing.osrmv1({
       serviceUrl: "https://router.project-osrm.org/route/v1",
+      profile: "car",
+      routingOptions: { alternatives: false },  // Disable alternative routes
     }),
     lineOptions: {
-      styles: [{ color: "green", weight: 0, opacity: 0 }], // invisible polyline
+      styles: [{ color: "blue", weight: 5, opacity: 0.8 }],
     },
     createMarker: function (i, wp, n) {
       return L.marker(wp.latLng, i === 0 ? { icon: redIcon } : { icon: taggedIcon });
     },
     addWaypoints: false,
-    fitSelectedRoutes: true,
     draggableWaypoints: false,
     routeWhileDragging: false,
-    show: false, // hides instructions panel
-    containerClassName: "leaflet-routing-container-hide", // hide UI container
+    show: false,
+    fitSelectedRoutes: true,
+    containerClassName: "leaflet-routing-container-hide",
   }).addTo(map);
 }
+
 
 // Watch user location
 if (navigator.geolocation) {
