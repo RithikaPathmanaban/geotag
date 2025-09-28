@@ -161,23 +161,26 @@ function updateCurrentLocation() {
 
 // Update user marker automatically
 function updateUserPosition(pos) {
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
-
-  document.getElementById("latField").value = lat.toFixed(6);
-  document.getElementById("lngField").value = lng.toFixed(6);
-
-  if (userMarker) {
-    userMarker.setLatLng([lat, lng]);
-    userMarker.setIcon(redIcon);
-  } else {
-    userMarker = L.marker([lat, lng], { icon: redIcon })
-      .addTo(map)
-      .bindPopup("You are here")
-      .openPopup();
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+  
+    document.getElementById("latField").value = lat.toFixed(6);
+    document.getElementById("lngField").value = lng.toFixed(6);
+  
+    if (userMarker) {
+      userMarker.setLatLng([lat, lng]);
+      userMarker.setIcon(redIcon);
+    } else {
+      userMarker = L.marker([lat, lng], { icon: redIcon })
+        .addTo(map)
+        .bindPopup("You are here")
+        .openPopup();
+    }
+  
+    // After moving, trim the taggedPoints if the user has passed them
+    trimCompletedRoute([lat, lng]);
   }
-}
-
+  
 // Tag location with green icon and connect with polyline
 function tagCurrentLocation() {
   if (!navigator.geolocation) {
@@ -290,20 +293,32 @@ function updateSavedRoutesDropdown() {
 function loadRoute() {
     const dropdown = document.getElementById("savedRoutesDropdown");
     const selectedName = dropdown.value;
-  
-    clearTaggedLocations(false); // ✅ Don't show alert
+    clearTaggedLocations(false);
   
     if (!selectedName) return;
   
     const points = savedRoutes[selectedName];
-    if (!points || points.length < 2) return;
+    if (!points || points.length < 1) return;
   
-    taggedPoints = [...points];
+    // Get current user location (if available)
+    let startLatLng;
+    if (userMarker) {
+      const latlng = userMarker.getLatLng();
+      startLatLng = [latlng.lat, latlng.lng];
+    } else {
+      // fallback: start from first of points
+      startLatLng = [points[0][0], points[0][1]];
+    }
+  
+    // Sort the route so that it starts from current location
+    const sorted = sortRouteFromStart(startLatLng, points);
+  
+    taggedPoints = sorted;
   
     taggedPoints.forEach((latlng, i) => {
       L.marker(latlng, { icon: taggedIcon })
         .addTo(map)
-        .bindPopup("Tagged Point " + (i + 1));
+        .bindPopup("Point " + (i + 1));
     });
   
     taggedRouteLine = L.polyline(taggedPoints, {
@@ -314,6 +329,7 @@ function loadRoute() {
     map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
   }
   
+  
 // Handle geolocation errors
 function geoError(err) {
   console.error("Geolocation error:", err.message, err);
@@ -323,5 +339,70 @@ function geoError(err) {
 function toggleControls() {
     const panel = document.getElementById("controlsPanel");
     panel.classList.toggle("hidden");
+  }
+  
+  function trimCompletedRoute(currentLatLng) {
+    if (!taggedRouteLine) return;
+  
+    // Compute distance to first point in taggedPoints
+    if (taggedPoints.length === 0) return;
+  
+    const first = taggedPoints[0];
+    const dist = haversineDistance(currentLatLng, first);
+  
+    const threshold = 20; // metres threshold to consider “reached” point
+    if (dist < threshold) {
+      // remove first point
+      taggedPoints.shift();
+  
+      // redraw the upcoming route
+      if (taggedRouteLine) {
+        map.removeLayer(taggedRouteLine);
+      }
+  
+      if (taggedPoints.length >= 1) {
+        taggedRouteLine = L.polyline(taggedPoints, {
+          color: "green",
+          weight: 4
+        }).addTo(map);
+      }
+    }
+  }
+  function sortRouteFromStart(startLatLng, points) {
+    const remaining = points.slice();
+    const ordered = [];
+    let current = [ startLatLng[0], startLatLng[1] ];
+  
+    while (remaining.length > 0) {
+      // find nearest
+      let minIdx = 0;
+      let minDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const d = haversineDistance(current, remaining[i]);
+        if (d < minDist) {
+          minDist = d;
+          minIdx = i;
+        }
+      }
+      const next = remaining.splice(minIdx, 1)[0];
+      ordered.push(next);
+      current = next;
+    }
+    return ordered;
+  }
+  function haversineDistance(a, b) {
+    const R = 6371e3; // metres
+    const toRad = deg => deg * Math.PI / 180;
+    const φ1 = toRad(a[0]);
+    const φ2 = toRad(b[0]);
+    const Δφ = toRad(b[0] - a[0]);
+    const Δλ = toRad(b[1] - a[1]);
+  
+    const sa = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+               Math.cos(φ1) * Math.cos(φ2) *
+               Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1-sa));
+  
+    return R * c; // in metres
   }
   
