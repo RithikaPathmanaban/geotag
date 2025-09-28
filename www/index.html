@@ -202,28 +202,27 @@
         outline: none;
       }
       .controls-wrapper {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-}
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+      }
 
-.toggle-controls-btn {
-  background-color: #3a86ff;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-bottom: 8px;
-  font-size: 14px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
+      .toggle-controls-btn {
+        background-color: #3a86ff;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-bottom: 8px;
+        font-size: 14px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
 
-#controlsPanel.hidden {
-  display: none;
-}
-
+      #controlsPanel.hidden {
+        display: none;
+      }
     </style>
 
     <!-- Leaflet JS -->
@@ -235,34 +234,43 @@
     <div id="map"></div>
 
     <div class="controls-wrapper">
-      <button class="toggle-controls-btn" onclick="toggleControls()">☰ Controls</button>
-    
+      <button class="toggle-controls-btn" onclick="toggleControls()">
+        ☰ Controls
+      </button>
+
       <div class="controls" id="controlsPanel">
         <label for="latField">Latitude</label>
         <input id="latField" placeholder="Latitude" readonly />
-    
+
         <label for="lngField">Longitude</label>
         <input id="lngField" placeholder="Longitude" readonly />
-    
+
         <div class="button-group">
           <button id="btnGetLocation">Get Current Location</button>
           <button id="btnTagLocation">Tag Location</button>
         </div>
-    
+
         <button id="btnClearTags">Clear Tagged Locations</button>
-    
+
         <div class="save-route-group">
-          <input type="text" id="routeNameInput" placeholder="Enter route name" />
+          <input
+            type="text"
+            id="routeNameInput"
+            placeholder="Enter route name"
+          />
           <button id="btnSaveRoute">Save Route</button>
         </div>
-    
-        <label for="savedRoutesDropdown" style="margin-top: 20px;">Saved Routes</label>
+
+        <label for="savedRoutesDropdown" style="margin-top: 20px"
+          >Saved Routes</label
+        >
         <select id="savedRoutesDropdown">
           <option value="">Select a saved route</option>
         </select>
+        <button id="btnStopNavigation">Stop Navigation</button>
+
       </div>
     </div>
-    
 
     <script src="js/app.js"></script>
   </body>

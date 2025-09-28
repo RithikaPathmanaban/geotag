@@ -2,6 +2,8 @@ let map, routeLine, userMarker, watchId;
 let taggedPoints = [];
 let taggedRouteLine = null;
 let taggedMarkers = [];
+let isFollowingRoute = false;
+
 
 
 // Store saved routes as { routeName: [ [lat,lng], ... ] }
@@ -100,7 +102,10 @@ function initApp() {
   document
     .getElementById("savedRoutesDropdown")
     .addEventListener("change", loadRoute);
-
+    document
+    .getElementById("btnStopNavigation")
+    .addEventListener("click", stopNavigation);
+  
   loadSavedRoutes();
 
   if (navigator.geolocation) {
@@ -267,20 +272,27 @@ function tagCurrentLocation() {
 
 // Clear all tagged points and line
 function clearTaggedLocations(showAlert = true) {
+  // Clear the tagged points array
   taggedPoints = [];
 
+  // Remove all tagged markers from the map
   taggedMarkers.forEach((marker) => {
     map.removeLayer(marker);
   });
+
+  // Clear the tagged markers array
   taggedMarkers = [];
 
+  // Remove the tagged route polyline if it exists
   if (taggedRouteLine) {
     map.removeLayer(taggedRouteLine);
     taggedRouteLine = null;
   }
 
+  // Reset the saved routes dropdown selection
   document.getElementById("savedRoutesDropdown").value = "";
 
+  // Optionally show alert to user
   if (showAlert) {
     alert("Tagged locations cleared.");
   }
@@ -359,11 +371,20 @@ function loadRoute() {
 
   taggedPoints = sorted;
 
+  // Clear taggedMarkers just in case
+  taggedMarkers = [];
+
   taggedPoints.forEach((latlng, i) => {
-    L.marker(latlng, { icon: taggedIcon })
+    const marker = L.marker(latlng, { icon: taggedIcon })
       .addTo(map)
       .bindPopup("Point " + (i + 1));
+
+    taggedMarkers.push(marker);
   });
+
+  if (taggedRouteLine) {
+    map.removeLayer(taggedRouteLine);
+  }
 
   taggedRouteLine = L.polyline(taggedPoints, {
     color: "green",
@@ -371,7 +392,12 @@ function loadRoute() {
   }).addTo(map);
 
   map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+
+  // Start navigation tracking
+  isFollowingRoute = true;
 }
+
+
 
 // Handle geolocation errors
 function geoError(err) {
@@ -386,31 +412,40 @@ function toggleControls() {
 
 function trimCompletedRoute(currentLatLng) {
   if (!taggedRouteLine) return;
-
-  // Compute distance to first point in taggedPoints
   if (taggedPoints.length === 0) return;
 
   const first = taggedPoints[0];
   const dist = haversineDistance(currentLatLng, first);
 
-  const threshold = 20; // metres threshold to consider “reached” point
+  const threshold = 20; // meters threshold to consider “reached” point
+
   if (dist < threshold) {
-    // remove first point
+    // Remove first point
     taggedPoints.shift();
 
-    // redraw the upcoming route
+    // Remove corresponding marker
+    const firstMarker = taggedMarkers.shift();
+    if (firstMarker) {
+      map.removeLayer(firstMarker);
+    }
+
+    // Remove old polyline
     if (taggedRouteLine) {
       map.removeLayer(taggedRouteLine);
     }
 
+    // Draw new polyline if points left
     if (taggedPoints.length >= 1) {
       taggedRouteLine = L.polyline(taggedPoints, {
         color: "green",
         weight: 4,
       }).addTo(map);
+    } else {
+      taggedRouteLine = null; // No points left
     }
   }
 }
+
 function sortRouteFromStart(startLatLng, points) {
   const remaining = points.slice();
   const ordered = [];
@@ -447,4 +482,11 @@ function haversineDistance(a, b) {
   const c = 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1 - sa));
 
   return R * c; // in metres
+}
+
+function stopNavigation() {
+  isFollowingRoute = false;
+  clearTaggedLocations(false);
+  document.getElementById("savedRoutesDropdown").value = "";
+  alert("Navigation stopped.");
 }
