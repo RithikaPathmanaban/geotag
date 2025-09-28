@@ -1,282 +1,36 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>GeoTag Route</title>
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src * data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline'; style-src * 'unsafe-inline'; media-src *; img-src * data: content:;"
-    />
-    <!-- Leaflet Routing Machine -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"
-    />
-    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<head>
+  <title>Road-Based Route Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <style>
+    body, html { margin:0; padding:0; height:100%; }
+    #map { height: 80%; width: 100%; }
+    #controlsPanel { padding: 10px; }
+    input[readonly] { width: 150px; margin-right: 10px; }
+    button { margin-right: 5px; }
+  </style>
+</head>
+<body>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<div id="map"></div>
+<div id="controlsPanel">
+  Lat: <input type="text" id="latField" readonly>
+  Lng: <input type="text" id="lngField" readonly>
+  <button id="pinModeBtn">Enable Pin Mode</button>
+  <button id="btnSaveRoute">Save Route</button>
+  <button id="btnClearTags">Clear Route</button>
+  <input type="text" id="routeNameInput" placeholder="Route Name">
+  <select id="savedRoutesDropdown">
+    <option value="">Select a saved route</option>
+  </select>
+  <button id="btnStartNavigation">Start Navigation</button>
+</div>
 
-    <style>
-      html,
-      body,
-      #map {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-
-      .controls {
-        position: absolute;
-        top: 15px;
-        left: 15px;
-        z-index: 1000;
-        background: #fff;
-        padding: 20px 25px 20px 25px; /* padding on all sides */
-        border-radius: 12px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-        width: 300px;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        user-select: none;
-        box-sizing: border-box;
-      }
-
-      /* Label styling */
-      .controls label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #444;
-        margin-top: 15px;
-        display: block;
-        margin-bottom: 6px;
-        letter-spacing: 0.02em;
-      }
-
-      /* Inputs and select - reduced height & font size, add right padding */
-      .controls input,
-      .controls select {
-        width: 100%;
-        padding: 8px 12px; /* reduced padding for smaller input */
-        font-size: 13px; /* smaller font size */
-        border: 1.8px solid #ccc;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        box-sizing: border-box;
-        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
-      }
-
-      /* Add right padding inside controls container to avoid inputs sticking to right */
-      .controls {
-        padding-right: 30px;
-      }
-
-      .controls input:focus,
-      .controls select:focus {
-        outline: none;
-        border-color: #3a86ff;
-        box-shadow: 0 0 8px #80b3ff;
-        background-color: #f0f8ff;
-      }
-
-      /* Button groups - flex with wrap for responsiveness */
-      .button-group {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        margin-top: 18px;
-        flex-wrap: wrap;
-      }
-
-      /* Buttons styling */
-      .controls button {
-        flex: 1 1 calc(50% - 6px);
-        border: none;
-        border-radius: 10px;
-        color: white;
-        font-size: 15px;
-        padding: 12px 0;
-        cursor: pointer;
-        font-weight: 600;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        transition: background-color 0.25s ease, box-shadow 0.25s ease;
-        user-select: none;
-      }
-
-      /* Blue color for general buttons (Get Location and Tag Location) */
-      #btnGetLocation,
-      #btnTagLocation {
-        background-color: #3a86ff;
-        box-shadow: 0 4px 8px rgba(58, 134, 255, 0.4);
-      }
-
-      #btnGetLocation:hover,
-      #btnTagLocation:hover {
-        background-color: #265dcc;
-        box-shadow: 0 6px 12px rgba(38, 93, 204, 0.7);
-      }
-
-      #btnGetLocation:active,
-      #btnTagLocation:active {
-        background-color: #1e469c;
-        box-shadow: 0 2px 6px rgba(30, 70, 156, 0.5);
-      }
-
-      /* Clear tags button - red background */
-      #btnClearTags {
-        margin-top: 20px;
-        flex: 1 1 100%;
-        background-color: #e63946; /* softer red */
-        box-shadow: 0 4px 8px rgba(230, 57, 70, 0.6);
-      }
-
-      #btnClearTags:hover {
-        background-color: #c5303e;
-        box-shadow: 0 6px 12px rgba(197, 48, 62, 0.8);
-      }
-
-      #btnClearTags:active {
-        background-color: #9b2c2e;
-        box-shadow: 0 2px 6px rgba(155, 44, 46, 0.7);
-      }
-
-      /* Route name input and save button aligned horizontally */
-      .save-route-group {
-        display: flex;
-        gap: 12px;
-        margin-top: 20px;
-        align-items: center;
-      }
-
-      /* Route name input - same small style */
-      #routeNameInput {
-        flex: 1;
-        padding: 8px 12px;
-        font-size: 13px;
-        border: 1.8px solid #ccc;
-        border-radius: 10px;
-        box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
-        box-sizing: border-box;
-      }
-
-      #routeNameInput:focus {
-        border-color: #3a86ff;
-        box-shadow: 0 0 10px #80b3ff;
-        background-color: #f0f8ff;
-      }
-
-      /* Save button - green background */
-      #btnSaveRoute {
-        flex-shrink: 0;
-        padding: 12px 18px;
-        font-weight: 700;
-        font-size: 15px;
-        border-radius: 10px;
-        background-color: #2a9d8f; /* greenish teal */
-        box-shadow: 0 4px 8px rgba(42, 157, 143, 0.5);
-        transition: background-color 0.3s ease, box-shadow 0.3s ease;
-      }
-
-      #btnSaveRoute:hover {
-        background-color: #1e6d63;
-        box-shadow: 0 6px 12px rgba(30, 109, 99, 0.8);
-      }
-
-      #btnSaveRoute:active {
-        background-color: #14473f;
-        box-shadow: 0 2px 6px rgba(20, 71, 63, 0.7);
-      }
-
-      /* Dropdown styling */
-      #savedRoutesDropdown {
-        margin-top: 22px;
-        padding: 8px 12px;
-        font-size: 13px;
-        border-radius: 10px;
-        border: 1.8px solid #ccc;
-        box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
-        background-color: white;
-        width: 100%;
-        box-sizing: border-box;
-      }
-
-      #savedRoutesDropdown:focus {
-        border-color: #3a86ff;
-        box-shadow: 0 0 10px #80b3ff;
-        outline: none;
-      }
-      .controls-wrapper {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 1000;
-      }
-
-      .toggle-controls-btn {
-        background-color: #3a86ff;
-        color: white;
-        border: none;
-        padding: 8px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        margin-bottom: 8px;
-        font-size: 14px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      }
-
-      #controlsPanel.hidden {
-        display: none;
-      }
-    </style>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- Cordova -->
-    <script src="cordova.js"></script>
-  </head>
-  <body>
-    <div id="map"></div>
-
-    <div class="controls-wrapper">
-      <button class="toggle-controls-btn" onclick="toggleControls()">
-        ☰ Controls
-      </button>
-
-      <div class="controls" id="controlsPanel">
-        <label for="latField">Latitude</label>
-        <input id="latField" placeholder="Latitude" readonly />
-
-        <label for="lngField">Longitude</label>
-        <input id="lngField" placeholder="Longitude" readonly />
-
-        <div class="button-group">
-          <button id="btnGetLocation">Get Current Location</button>
-          <button id="btnTagLocation">Tag Location</button>
-        </div>
-
-        <button id="btnClearTags">Clear Tagged Locations</button>
-
-        <div class="save-route-group">
-          <input
-            type="text"
-            id="routeNameInput"
-            placeholder="Enter route name"
-          />
-          <button id="btnSaveRoute">Save Route</button>
-        </div>
-
-        <label for="savedRoutesDropdown" style="margin-top: 20px"
-          >Saved Routes</label
-        >
-        <select id="savedRoutesDropdown">
-          <option value="">Select a saved route</option>
-        </select>
-        <button id="btnStopNavigation">Stop Navigation</button>
-        <button id="btnStartNavigation">Stop Navigation</button>
-      </div>
-    </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 
     <script src="js/app.js"></script>
   </body>

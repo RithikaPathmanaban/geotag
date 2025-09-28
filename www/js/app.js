@@ -1,564 +1,174 @@
-let map, routeLine, userMarker, watchId;
+let map, userMarker, watchId;
 let taggedPoints = [];
-let taggedRouteLine = null;
 let taggedMarkers = [];
-let isFollowingRoute = false;
-let startNavBtn = document.getElementById("btnStartNavigation");
+let taggedRouteLine = null;
 let routingControl = null;
-
-
-// Store saved routes as { routeName: [ [lat,lng], ... ] }
+let pinMode = false;
 let savedRoutes = {};
+let isNavigating = false;
 
-// === 6 static route points around Chennai ===
-const staticPoints = [
-  { lat: 12.98052, lng: 80.24285 },
-  { lat: 12.98025, lng: 80.24291 },
-  { lat: 12.98061, lng: 80.24318 },
-  { lat: 12.98053, lng: 80.24365 },
-  { lat: 12.98025, lng: 80.24371 },
-  { lat: 12.98001, lng: 80.24352 },
-];
+// Icons
+const redIcon = L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png", iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34] });
+const taggedIcon = L.icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-30] });
 
-// Red icon: current user location
-const redIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+// Initialize map
+function initMap(){
+  map = L.map("map").setView([10.7905,78.7047],14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap contributors"}).addTo(map);
 
-// Green custom icon: tagged locations
-const taggedIcon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
-  iconSize: [30, 30],
-  iconAnchor: [15, 30],
-  popupAnchor: [0, -30],
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  shadowSize: [41, 41],
-  shadowAnchor: [12, 41],
-});
-
-// Wait for device ready
-document.addEventListener("deviceready", () => {
-  const permissions = cordova.plugins.permissions;
-  const perms = [
-    permissions.ACCESS_FINE_LOCATION,
-    permissions.ACCESS_COARSE_LOCATION,
-  ];
-
-  permissions.hasPermission(
-    perms,
-    function (status) {
-      if (status.hasPermission) {
-        console.log("Location permissions granted");
-        initApp();
-      } else {
-        permissions.requestPermissions(
-          perms,
-          function (status) {
-            if (status.hasPermission) {
-              console.log("Permissions granted after request");
-              initApp();
-            } else {
-              alert(
-                "Location permissions denied. The app may not work properly."
-              );
-            }
-          },
-          function () {
-            alert("Failed to request permissions");
-          }
-        );
-      }
-    },
-    function () {
-      alert("Failed to check permissions");
-    }
-  );
-});
-
-// Initialize after permissions
-function initApp() {
-  initMap();
-  drawStaticRoute();
-
-  document
-    .getElementById("btnGetLocation")
-    .addEventListener("click", updateCurrentLocation);
-  document
-    .getElementById("btnTagLocation")
-    .addEventListener("click", tagCurrentLocation);
-  document
-    .getElementById("btnClearTags")
-    .addEventListener("click", clearTaggedLocations);
-
-  document
-    .getElementById("btnSaveRoute")
-    .addEventListener("click", saveCurrentRoute);
-  document
-    .getElementById("savedRoutesDropdown")
-    .addEventListener("change", loadRoute);
-  document
-    .getElementById("btnStopNavigation")
-    .addEventListener("click", stopNavigation);
-
-  loadSavedRoutes();
-
-  if (navigator.geolocation) {
-    watchId = navigator.geolocation.watchPosition(
-      updateUserPosition,
-      geoError,
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 10000,
-      }
-    );
-  }
-}
-
-// Map setup
-function initMap() {
-  // Initialize map centered at first static point
-  map = L.map("map").setView([staticPoints[0].lat, staticPoints[0].lng], 18);
-
-  // Add OpenStreetMap tile layer
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap contributors",
-  }).addTo(map);
-
-  // Enable tagging by clicking on the map
-  map.on("click", function (e) {
-    const latlng = [e.latlng.lat, e.latlng.lng];
-    addTaggedPoint(latlng, "Pinned Point " + (taggedPoints.length + 1));
+  map.on("click", function(e){
+    if(!pinMode) return;
+    addTaggedPoint([e.latlng.lat,e.latlng.lng],"Pinned Point " + (taggedPoints.length+1));
   });
 }
 
-// Draw static route (blue line)
-function drawStaticRoute() {
-  const latlngs = [];
-  staticPoints.forEach((p, i) => {
-    const lat = Number(p.lat);
-    const lng = Number(p.lng);
-    const valid =
-      isFinite(lat) &&
-      isFinite(lng) &&
-      Math.abs(lat) <= 90 &&
-      Math.abs(lng) <= 180;
-    if (valid) {
-      latlngs.push([lat, lng]);
-    } else {
-      console.warn("Invalid coordinate at index", i, p);
-    }
-  });
-
-  if (latlngs.length < 2) {
-    console.error("Not enough valid points to draw route!");
-    return;
-  }
-
-  routeLine = L.polyline(latlngs, { color: "blue", weight: 5 }).addTo(map);
-
-  latlngs.forEach(([lat, lng], i) => {
-    L.marker([lat, lng])
-      .addTo(map)
-      .bindPopup("Point " + (i + 1));
-  });
-
-  try {
-    const bounds = routeLine.getBounds();
-    map.fitBounds(bounds, { padding: [20, 20] });
-  } catch (e) {
-    map.setView(latlngs[0], 18);
-  }
+// Add tagged point
+function addTaggedPoint(latlng,label){
+  taggedPoints.push(latlng);
+  const marker = L.marker(latlng,{icon:taggedIcon}).addTo(map).bindPopup(label);
+  marker.openPopup();
+  taggedMarkers.push(marker);
 }
 
-// Get user location (manual button)
-function updateCurrentLocation() {
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-
-      document.getElementById("latField").value = lat.toFixed(6);
-      document.getElementById("lngField").value = lng.toFixed(6);
-
-      if (userMarker) {
-        userMarker.setLatLng([lat, lng]);
-        userMarker.setIcon(redIcon);
-      } else {
-        userMarker = L.marker([lat, lng], { icon: redIcon })
-          .addTo(map)
-          .bindPopup("You are here")
-          .openPopup();
-      }
-
-      map.panTo([lat, lng]);
-    },
-    geoError,
-    { enableHighAccuracy: true }
-  );
-}
-
-// Update user marker automatically
-function updateUserPosition(pos) {
+// Update user location
+function updateUserLocation(pos){
   const lat = pos.coords.latitude;
   const lng = pos.coords.longitude;
-
   document.getElementById("latField").value = lat.toFixed(6);
   document.getElementById("lngField").value = lng.toFixed(6);
 
-  if (userMarker) {
-    userMarker.setLatLng([lat, lng]);
-    userMarker.setIcon(redIcon);
-  } else {
-    userMarker = L.marker([lat, lng], { icon: redIcon })
-      .addTo(map)
-      .bindPopup("You are here")
-      .openPopup();
-  }
+  if(userMarker) userMarker.setLatLng([lat,lng]);
+  else userMarker = L.marker([lat,lng],{icon:redIcon}).addTo(map).bindPopup("You are here").openPopup();
 
-  // After moving, trim the taggedPoints if the user has passed them
-  if (isFollowingRoute) {
-    trimCompletedRoute([lat, lng]);
-  }
+  map.panTo([lat,lng]);
+
+  // If navigation active, update route dynamically
+  if(isNavigating) recalcNavigation([lat,lng]);
 }
 
-function addTaggedPoint(latlng, label) {
-  taggedPoints.push(latlng);
+// Pin mode toggle
+document.getElementById("pinModeBtn").addEventListener("click",()=>{
+  pinMode = !pinMode;
+  document.getElementById("pinModeBtn").textContent = pinMode?"Disable Pin Mode":"Enable Pin Mode";
+});
 
-  const marker = L.marker(latlng, { icon: taggedIcon })
-    .addTo(map)
-    .bindPopup(label || "Tagged Point " + taggedPoints.length);
-  marker.openPopup();
-
-  taggedMarkers.push(marker);
-
-  if (taggedPoints.length >= 2) {
-    if (taggedRouteLine) {
-      taggedRouteLine.setLatLngs(taggedPoints);
-    } else {
-      taggedRouteLine = L.polyline(taggedPoints, {
-        color: "green",
-        weight: 4,
-      }).addTo(map);
-    }
-  }
-
-  if (taggedRouteLine) {
-    map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
-  }
-}
-
-
-// Tag location with green icon and connect with polyline
-function tagCurrentLocation() {
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      addTaggedPoint([lat, lng], "Tagged Current Location");
-    },
-    geoError,
-    { enableHighAccuracy: true }
-  );
-}
-
-
-// Clear all tagged points and line
-function clearTaggedLocations(showAlert = true) {
+// Clear route
+document.getElementById("btnClearTags").addEventListener("click",()=>{
   taggedPoints = [];
-  taggedMarkers.forEach((marker) => {
-    map.removeLayer(marker);
-  });
-  taggedMarkers = [];
+  taggedMarkers.forEach(m=>map.removeLayer(m));
+  taggedMarkers=[];
+  if(taggedRouteLine) map.removeLayer(taggedRouteLine);
+  taggedRouteLine=null;
+  if(routingControl){ map.removeControl(routingControl); routingControl=null; }
+  isNavigating=false;
+});
 
-  if (taggedRouteLine) {
-    map.removeLayer(taggedRouteLine);
-    taggedRouteLine = null;
-  }
-
-  document.getElementById("savedRoutesDropdown").value = "";
-
-  if (showAlert) {
-    alert("Tagged locations cleared.");
-  }
-}
-
-// Save the current tagged route with a given name
-function saveCurrentRoute() {
-  const nameInput = document.getElementById("routeNameInput");
-  const name = nameInput.value.trim();
-
-  if (!name) {
-    alert("Please enter a route name.");
-    return;
-  }
-
-  if (!Array.isArray(taggedPoints) || taggedPoints.length < 2) {
-    alert("Tag at least two points to save a route.");
-    return;
-  }
-
-  savedRoutes[name] = taggedPoints.slice(); // clone the array
+// Save route
+document.getElementById("btnSaveRoute").addEventListener("click",()=>{
+  const name = document.getElementById("routeNameInput").value.trim();
+  if(!name){ alert("Enter route name"); return;}
+  if(taggedPoints.length<2){ alert("Pin at least 2 points"); return;}
+  savedRoutes[name] = taggedPoints.slice();
   localStorage.setItem("savedRoutes", JSON.stringify(savedRoutes));
-
   updateSavedRoutesDropdown();
-  nameInput.value = "";
-  alert(`Route "${name}" saved successfully.`);
-}
+  document.getElementById("routeNameInput").value = "";
+  alert("Route saved");
+});
 
-// Load saved routes from localStorage on start
-function loadSavedRoutes() {
+// Load saved routes dropdown
+function loadSavedRoutes(){
   const saved = localStorage.getItem("savedRoutes");
-  if (saved) {
-    savedRoutes = JSON.parse(saved);
-    updateSavedRoutesDropdown();
-  }
+  if(saved){ savedRoutes = JSON.parse(saved); updateSavedRoutesDropdown(); }
 }
-
-// Update the dropdown options from savedRoutes object
-function updateSavedRoutesDropdown() {
+function updateSavedRoutesDropdown(){
   const dropdown = document.getElementById("savedRoutesDropdown");
   dropdown.innerHTML = '<option value="">Select a saved route</option>';
-
-  Object.keys(savedRoutes).forEach((name) => {
+  Object.keys(savedRoutes).forEach(name=>{
     const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
+    option.value = name; option.textContent=name;
     dropdown.appendChild(option);
   });
 }
 
-// Load selected route from dropdown and display on map
-function loadRoute() {
-  const dropdown = document.getElementById("savedRoutesDropdown");
-  const selectedName = dropdown.value;
-  clearTaggedLocations(false);
-
-  if (!selectedName) return;
-
-  const points = savedRoutes[selectedName];
-  if (!points || points.length < 1) return;
-
-  // Get current user location (if available)
-  let startLatLng;
-  if (userMarker) {
-    const latlng = userMarker.getLatLng();
-    startLatLng = [latlng.lat, latlng.lng];
-  } else {
-    // fallback: start from first of points
-    startLatLng = [points[0][0], points[0][1]];
-  }
-
-  // Sort the route so that it starts from current location
-  const sorted = sortRouteFromStart(startLatLng, points);
-
-  taggedPoints = sorted;
-
-  taggedMarkers = [];
-
-  taggedPoints.forEach((latlng, i) => {
-    const marker = L.marker(latlng, { icon: taggedIcon })
-      .addTo(map)
-      .bindPopup("Point " + (i + 1));
-
+// Load selected route
+document.getElementById("savedRoutesDropdown").addEventListener("change",()=>{
+  const name = document.getElementById("savedRoutesDropdown").value;
+  if(!name) return;
+  taggedPoints = savedRoutes[name].slice();
+  taggedMarkers.forEach(m=>map.removeLayer(m));
+  taggedMarkers=[];
+  taggedPoints.forEach((p,i)=>{
+    const marker = L.marker(p,{icon:taggedIcon}).addTo(map).bindPopup("Point "+(i+1));
     taggedMarkers.push(marker);
   });
+  if(taggedRouteLine) map.removeLayer(taggedRouteLine);
+  taggedRouteLine = L.polyline(taggedPoints,{color:'green',weight:4}).addTo(map);
+  map.fitBounds(taggedRouteLine.getBounds(),{padding:[30,30]});
+});
 
-  if (taggedRouteLine) {
-    map.removeLayer(taggedRouteLine);
-  }
-
-  taggedRouteLine = L.polyline(taggedPoints, {
-    color: "green",
-    weight: 4,
-  }).addTo(map);
-
-  map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
-
-  // Show start navigation button
-  if (!startNavBtn) {
-    startNavBtn = document.createElement("button");
-    startNavBtn.id = "btnStartNavigation";
-    startNavBtn.textContent = "Start Navigation";
-    startNavBtn.style.marginTop = "10px";
-    document.getElementById("controlsPanel").appendChild(startNavBtn);
-
-    startNavBtn.addEventListener("click", startNavigation);
-  }
-
-  startNavBtn.style.display = "inline-block"; // make sure it's visible
-}
-
-// Handle geolocation errors
-function geoError(err) {
-  console.error("Geolocation error:", err.message, err);
-  alert("Error getting location: " + err.message);
-}
-
-function toggleControls() {
-  const panel = document.getElementById("controlsPanel");
-  panel.classList.toggle("hidden");
-}
-
-// Trim points that user already passed during navigation
-function trimCompletedRoute(currentLatLng) {
-  if (!taggedRouteLine) return;
-  if (taggedPoints.length === 0) return;
-
-  const first = taggedPoints[0];
-  const dist = haversineDistance(currentLatLng, first);
-
-  const threshold = 20; // meters threshold to consider “reached” point
-
-  if (dist < threshold) {
-    // Remove first point
-    taggedPoints.shift();
-
-    // Remove corresponding marker
-    const firstMarker = taggedMarkers.shift();
-    if (firstMarker) {
-      map.removeLayer(firstMarker);
-    }
-
-    // Remove old polyline
-    if (taggedRouteLine) {
-      map.removeLayer(taggedRouteLine);
-    }
-
-    // Draw new polyline if points left
-    if (taggedPoints.length >= 1) {
-      taggedRouteLine = L.polyline(taggedPoints, {
-        color: "green",
-        weight: 4,
-      }).addTo(map);
-    } else {
-      taggedRouteLine = null; // No points left
-      isFollowingRoute = false;
-      alert("Navigation complete!");
-    }
-  }
-}
-
-// Sort points starting from the closest to current location
-function sortRouteFromStart(startLatLng, points) {
+// TSP optimization (nearest neighbour)
+function optimizeRoute(start, points){
   const remaining = points.slice();
   const ordered = [];
-  let current = [startLatLng[0], startLatLng[1]];
-
-  while (remaining.length > 0) {
-    let minIdx = 0;
-    let minDist = haversineDistance(current, remaining[0]);
-    for (let i = 1; i < remaining.length; i++) {
-      const dist = haversineDistance(current, remaining[i]);
-      if (dist < minDist) {
-        minDist = dist;
-        minIdx = i;
-      }
+  let current = start;
+  while(remaining.length>0){
+    let minIdx=0, minDist=haversineDistance(current,remaining[0]);
+    for(let i=1;i<remaining.length;i++){
+      const dist=haversineDistance(current,remaining[i]);
+      if(dist<minDist){ minDist=dist; minIdx=i; }
     }
-    const next = remaining.splice(minIdx, 1)[0];
+    const next = remaining.splice(minIdx,1)[0];
     ordered.push(next);
     current = next;
   }
-
   return ordered;
 }
 
-// Haversine distance between two latlng points in meters
-function haversineDistance(coord1, coord2) {
-  const R = 6371000; // meters
-  const lat1 = (coord1[0] * Math.PI) / 180;
-  const lat2 = (coord2[0] * Math.PI) / 180;
-  const dLat = lat2 - lat1;
-  const dLon = ((coord2[1] - coord1[1]) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+// Haversine distance
+function haversineDistance(a,b){
+  const R=6371000;
+  const lat1=a[0]*Math.PI/180, lat2=b[0]*Math.PI/180;
+  const dLat=lat2-lat1, dLon=(b[1]-a[1])*Math.PI/180;
+  const x=Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-// STOP NAVIGATION
-function stopNavigation() {
-  isFollowingRoute = false;
+// Start Navigation
+document.getElementById("btnStartNavigation").addEventListener("click",()=>{
+  if(taggedPoints.length<1){ alert("No points to navigate"); return; }
+  if(!userMarker){ alert("User location not found"); return; }
 
-  if (routingControl) {
-    map.removeControl(routingControl);
-    routingControl = null;
-  }
+  isNavigating = true;
+  recalcNavigation([userMarker.getLatLng().lat,userMarker.getLatLng().lng]);
+});
 
-  // Clear markers & points
-  taggedPoints = [];
-  taggedMarkers.forEach((marker) => map.removeLayer(marker));
-  taggedMarkers = [];
+// Recalculate navigation dynamically
+function recalcNavigation(currentLocation){
+  if(taggedPoints.length<1) return;
+  const orderedPoints = optimizeRoute(currentLocation, taggedPoints);
+  const waypoints = [L.latLng(...currentLocation)];
+  orderedPoints.forEach(p=>waypoints.push(L.latLng(...p)));
 
-  document.getElementById("btnStopNavigation").style.display = "none";
-  if (startNavBtn) startNavBtn.style.display = "inline-block";
+  if(routingControl){ map.removeControl(routingControl); routingControl=null; }
 
-  alert("Navigation stopped and cleared.");
-}
-
-// START NAVIGATION (Updated as requested)
-// START NAVIGATION using road-based routing
-function startNavigation() {
-  if (!userMarker) {
-    alert("User location not available. Please allow location access.");
-    return;
-  }
-
-  if (taggedPoints.length < 1) {
-    alert("No tagged points to navigate.");
-    return;
-  }
-
-  const userLatLng = userMarker.getLatLng();
-  const waypoints = [L.latLng(userLatLng.lat, userLatLng.lng)];
-
-  // Add tagged points as waypoints
-  taggedPoints.forEach((p) => {
-    waypoints.push(L.latLng(p[0], p[1]));
-  });
-
-  // Remove old routing control if exists
-  if (routingControl) {
-    map.removeControl(routingControl);
-  }
-
-  // Create routing control (road based)
   routingControl = L.Routing.control({
     waypoints: waypoints,
-    routeWhileDragging: false,
-    show: false,
-    addWaypoints: false,
-    draggableWaypoints: false,
-    fitSelectedRoutes: true,
-    lineOptions: {
-      styles: [{ color: "green", weight: 5 }],
-    },
+    router: L.Routing.osrmv1({serviceUrl:'https://router.project-osrm.org/route/v1'}),
+    lineOptions: {styles:[{color:'green',weight:5}]},
+    createMarker: function(i,wp,n){ return L.marker(wp.latLng,i===0?{icon:redIcon}:{icon:taggedIcon}); },
+    addWaypoints:false,
+    fitSelectedRoutes:true,
+    draggableWaypoints:false,
+    routeWhileDragging:false
   }).addTo(map);
-
-  isFollowingRoute = true;
-
-  if (startNavBtn) startNavBtn.style.display = "none";
-  const stopBtn = document.getElementById("btnStopNavigation");
-  if (stopBtn) stopBtn.style.display = "inline-block";
-
-  alert("Navigation started with road-based routing.");
 }
+
+// Watch user location
+if(navigator.geolocation){
+  navigator.geolocation.getCurrentPosition(updateUserLocation);
+  watchId = navigator.geolocation.watchPosition(updateUserLocation);
+}
+
+initMap();
+loadSavedRoutes();
+
