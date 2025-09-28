@@ -213,31 +213,34 @@ function tagCurrentLocation() {
 }
 
 // Clear all tagged points and line
-function clearTaggedLocations() {
-  taggedPoints = [];
-
-  map.eachLayer(layer => {
-    if (layer instanceof L.Marker &&
-        layer !== userMarker &&
-        !staticPoints.some(p =>
-          layer.getLatLng().lat.toFixed(6) === p.lat.toFixed(6) &&
-          layer.getLatLng().lng.toFixed(6) === p.lng.toFixed(6)
-        )
-    ) {
-      map.removeLayer(layer);
+function clearTaggedLocations(showAlert = true) {
+    taggedPoints = [];
+  
+    map.eachLayer(layer => {
+      if (layer instanceof L.Marker &&
+          layer !== userMarker &&
+          !staticPoints.some(p =>
+            layer.getLatLng().lat.toFixed(6) === p.lat.toFixed(6) &&
+            layer.getLatLng().lng.toFixed(6) === p.lng.toFixed(6)
+          )
+      ) {
+        map.removeLayer(layer);
+      }
+    });
+  
+    if (taggedRouteLine) {
+      map.removeLayer(taggedRouteLine);
+      taggedRouteLine = null;
     }
-  });
-
-  if (taggedRouteLine) {
-    map.removeLayer(taggedRouteLine);
-    taggedRouteLine = null;
+  
+    document.getElementById("savedRoutesDropdown").value = "";
+  
+    // Only show alert if explicitly asked
+    if (showAlert) {
+      alert("Tagged locations cleared.");
+    }
   }
-
-  document.getElementById("savedRoutesDropdown").value = "";
-
-  alert("Tagged locations cleared.");
-}
-
+  
 // Save the current tagged route with a given name
 function saveCurrentRoute() {
   const nameInput = document.getElementById("routeNameInput");
@@ -285,34 +288,40 @@ function updateSavedRoutesDropdown() {
 
 // Load selected route from dropdown and display on map
 function loadRoute() {
-  const dropdown = document.getElementById("savedRoutesDropdown");
-  const selectedName = dropdown.value;
-
-  clearTaggedLocations();
-
-  if (!selectedName) return;
-
-  const points = savedRoutes[selectedName];
-  if (!points || points.length < 2) return;
-
-  taggedPoints = [...points];
-
-  taggedPoints.forEach((latlng, i) => {
-    L.marker(latlng, { icon: taggedIcon })
-      .addTo(map)
-      .bindPopup("Tagged Point " + (i + 1));
-  });
-
-  taggedRouteLine = L.polyline(taggedPoints, {
-    color: "green",
-    weight: 4
-  }).addTo(map);
-
-  map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
-}
-
+    const dropdown = document.getElementById("savedRoutesDropdown");
+    const selectedName = dropdown.value;
+  
+    clearTaggedLocations(false); // ✅ Don't show alert
+  
+    if (!selectedName) return;
+  
+    const points = savedRoutes[selectedName];
+    if (!points || points.length < 2) return;
+  
+    taggedPoints = [...points];
+  
+    taggedPoints.forEach((latlng, i) => {
+      L.marker(latlng, { icon: taggedIcon })
+        .addTo(map)
+        .bindPopup("Tagged Point " + (i + 1));
+    });
+  
+    taggedRouteLine = L.polyline(taggedPoints, {
+      color: "green",
+      weight: 4
+    }).addTo(map);
+  
+    map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+  }
+  
 // Handle geolocation errors
 function geoError(err) {
   console.error("Geolocation error:", err.message, err);
   alert("Error getting location: " + err.message);
 }
+
+function toggleControls() {
+    const panel = document.getElementById("controlsPanel");
+    panel.classList.toggle("hidden");
+  }
+  
