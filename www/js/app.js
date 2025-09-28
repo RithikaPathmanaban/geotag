@@ -451,11 +451,11 @@ function sortRouteFromStart(startLatLng, points) {
 
   while (remaining.length > 0) {
     let minIdx = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const d = haversineDistance(current, remaining[i]);
-      if (d < minDist) {
-        minDist = d;
+    let minDist = haversineDistance(current, remaining[0]);
+    for (let i = 1; i < remaining.length; i++) {
+      const dist = haversineDistance(current, remaining[i]);
+      if (dist < minDist) {
+        minDist = dist;
         minIdx = i;
       }
     }
@@ -463,28 +463,49 @@ function sortRouteFromStart(startLatLng, points) {
     ordered.push(next);
     current = next;
   }
+
   return ordered;
 }
 
-// Calculate distance between two latlng points in meters
-function haversineDistance(a, b) {
-  const R = 6371e3; // metres
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const φ1 = toRad(a[0]);
-  const φ2 = toRad(b[0]);
-  const Δφ = toRad(b[0] - a[0]);
-  const Δλ = toRad(b[1] - a[1]);
-
-  const sa =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1 - sa));
-  const d = R * c;
-  return d;
+// Haversine distance between two latlng points in meters
+function haversineDistance(coord1, coord2) {
+  const R = 6371000; // meters
+  const lat1 = (coord1[0] * Math.PI) / 180;
+  const lat2 = (coord2[0] * Math.PI) / 180;
+  const dLat = lat2 - lat1;
+  const dLon = ((coord2[1] - coord1[1]) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
-// Start navigation from current user location
+// STOP NAVIGATION
+function stopNavigation() {
+  isFollowingRoute = false;
+
+  if (taggedRouteLine) {
+    map.removeLayer(taggedRouteLine);
+    taggedRouteLine = null;
+  }
+
+  taggedPoints = [];
+  taggedMarkers.forEach((marker) => {
+    map.removeLayer(marker);
+  });
+  taggedMarkers = [];
+
+  // Hide stop button and show start button
+  document.getElementById("btnStopNavigation").style.display = "none";
+  if (startNavBtn) {
+    startNavBtn.style.display = "inline-block";
+  }
+
+  alert("Navigation stopped and cleared.");
+}
+
+// START NAVIGATION (Updated as requested)
 function startNavigation() {
   if (!userMarker) {
     alert("User location not available. Please allow location access.");
@@ -499,8 +520,11 @@ function startNavigation() {
   const userLatLng = userMarker.getLatLng();
   const userPos = [userLatLng.lat, userLatLng.lng];
 
-  // Build new route starting from user location + tagged points
-  const routeWithUserStart = [userPos, ...taggedPoints];
+  // Sort tagged points starting from user's current location
+  const sortedPoints = sortRouteFromStart(userPos, taggedPoints);
+
+  // Build new route starting from user location + sorted tagged points
+  const routeWithUserStart = [userPos, ...sortedPoints];
 
   // Remove old polyline if any
   if (taggedRouteLine) {
@@ -512,6 +536,9 @@ function startNavigation() {
     color: "green",
     weight: 4,
   }).addTo(map);
+
+  // Update taggedPoints with the sorted order for trimming logic
+  taggedPoints = sortedPoints;
 
   isFollowingRoute = true; // enable trimming in updateUserPosition
 
@@ -525,27 +552,4 @@ function startNavigation() {
   map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
 
   alert("Navigation started.");
-}
-
-// Stop navigation
-function stopNavigation() {
-  isFollowingRoute = false;
-
-  // Remove navigation polyline
-  if (taggedRouteLine) {
-    map.removeLayer(taggedRouteLine);
-    taggedRouteLine = null;
-  }
-
-  // Clear all tags and markers
-  clearTaggedLocations(false);
-
-  // Hide stop button
-  const stopBtn = document.getElementById("btnStopNavigation");
-  if (stopBtn) stopBtn.style.display = "none";
-
-  // Show start button if taggedPoints exist (unlikely since cleared)
-  if (startNavBtn) startNavBtn.style.display = "none";
-
-  alert("Navigation stopped and cleared.");
 }
