@@ -1,4 +1,6 @@
 let map, routeLine, userMarker, watchId;
+let taggedPoints = [];
+let taggedRouteLine = null;
 
 // === 6 static route points around Chennai ===
 const staticPoints = [
@@ -14,9 +16,9 @@ const staticPoints = [
 const redIcon = L.icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize:     [25, 41],  // size of the icon
-  iconAnchor:   [12, 41],  // point of the icon which will correspond to marker's location
-  popupAnchor:  [1, -34],  // point from which the popup should open relative to the iconAnchor
+  iconSize:     [25, 41],
+  iconAnchor:   [12, 41],
+  popupAnchor:  [1, -34],
   shadowSize:   [41, 41]
 });
 
@@ -55,6 +57,7 @@ function initApp() {
   drawStaticRoute();
 
   document.getElementById("btnGetLocation").addEventListener("click", updateCurrentLocation);
+  document.getElementById("btnTagLocation").addEventListener("click", tagCurrentLocation); // ✅ NEW
 
   if (navigator.geolocation) {
     watchId = navigator.geolocation.watchPosition(updateUserPosition, geoError, {
@@ -107,50 +110,80 @@ function drawStaticRoute() {
 }
 
 function updateCurrentLocation() {
-    if (!navigator.geolocation) {
-      alert("Geolocation not supported");
-      return;
-    }
-  
-    navigator.geolocation.getCurrentPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-  
-      document.getElementById("latField").value = lat.toFixed(6);
-      document.getElementById("lngField").value = lng.toFixed(6);
-  
-      if (userMarker) {
-        userMarker.setLatLng([lat, lng]);
-        userMarker.setIcon(redIcon); // ✅ Ensure red icon stays applied
-      } else {
-        userMarker = L.marker([lat, lng], { icon: redIcon })
-          .addTo(map)
-          .bindPopup("You are here")
-          .openPopup();
-      }
-  
-      map.panTo([lat, lng]);
-    }, geoError, { enableHighAccuracy: true });
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported");
+    return;
   }
-  
-  function updateUserPosition(pos) {
+
+  navigator.geolocation.getCurrentPosition(pos => {
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
-  
+
     document.getElementById("latField").value = lat.toFixed(6);
     document.getElementById("lngField").value = lng.toFixed(6);
-  
+
     if (userMarker) {
       userMarker.setLatLng([lat, lng]);
-      userMarker.setIcon(redIcon); // ✅ Force red icon here as well
+      userMarker.setIcon(redIcon);
     } else {
       userMarker = L.marker([lat, lng], { icon: redIcon })
         .addTo(map)
         .bindPopup("You are here")
         .openPopup();
     }
+
+    map.panTo([lat, lng]);
+  }, geoError, { enableHighAccuracy: true });
+}
+
+function updateUserPosition(pos) {
+  const lat = pos.coords.latitude;
+  const lng = pos.coords.longitude;
+
+  document.getElementById("latField").value = lat.toFixed(6);
+  document.getElementById("lngField").value = lng.toFixed(6);
+
+  if (userMarker) {
+    userMarker.setLatLng([lat, lng]);
+    userMarker.setIcon(redIcon);
+  } else {
+    userMarker = L.marker([lat, lng], { icon: redIcon })
+      .addTo(map)
+      .bindPopup("You are here")
+      .openPopup();
   }
-  
+}
+
+// ✅ New: Tag current location and draw path
+function tagCurrentLocation() {
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    const latlng = [lat, lng];
+    taggedPoints.push(latlng);
+
+    const marker = L.marker(latlng, { icon: redIcon })
+      .addTo(map)
+      .bindPopup("Tagged Point " + taggedPoints.length);
+    marker.openPopup();
+
+    if (taggedPoints.length >= 2) {
+      if (taggedRouteLine) {
+        taggedRouteLine.setLatLngs(taggedPoints);
+      } else {
+        taggedRouteLine = L.polyline(taggedPoints, { color: "green", weight: 4, dashArray: '5, 10' }).addTo(map);
+      }
+      map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+    }
+
+  }, geoError, { enableHighAccuracy: true });
+}
 
 function geoError(err) {
   console.error("Geolocation error:", err.message, err);
