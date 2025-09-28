@@ -12,17 +12,28 @@ const staticPoints = [
   { lat: 12.98017, lng: 80.23954 },
 ];
 
-// Define red marker icon
+// Red icon: current user location
 const redIcon = L.icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize:     [25, 41],
-  iconAnchor:   [12, 41],
-  popupAnchor:  [1, -34],
-  shadowSize:   [41, 41]
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
 });
 
-// Wait for device ready, then check permissions
+// Green custom icon: tagged locations
+const taggedIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854878.png',
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+  popupAnchor: [0, -30],
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  shadowSize: [41, 41],
+  shadowAnchor: [12, 41]
+});
+
+// Wait for device ready
 document.addEventListener('deviceready', () => {
   const permissions = cordova.plugins.permissions;
   const perms = [
@@ -51,13 +62,14 @@ document.addEventListener('deviceready', () => {
   });
 });
 
-// Initialize app after permissions granted
+// Initialize after permissions
 function initApp() {
   initMap();
   drawStaticRoute();
 
   document.getElementById("btnGetLocation").addEventListener("click", updateCurrentLocation);
-  document.getElementById("btnTagLocation").addEventListener("click", tagCurrentLocation); // ✅ NEW
+  document.getElementById("btnTagLocation").addEventListener("click", tagCurrentLocation);
+  document.getElementById("btnClearTags").addEventListener("click", clearTaggedLocations);
 
   if (navigator.geolocation) {
     watchId = navigator.geolocation.watchPosition(updateUserPosition, geoError, {
@@ -68,6 +80,7 @@ function initApp() {
   }
 }
 
+// Map setup
 function initMap() {
   map = L.map('map').setView([staticPoints[0].lat, staticPoints[0].lng], 18);
 
@@ -77,6 +90,7 @@ function initMap() {
   }).addTo(map);
 }
 
+// Draw static route (blue line)
 function drawStaticRoute() {
   const latlngs = [];
   staticPoints.forEach((p, i) => {
@@ -109,6 +123,7 @@ function drawStaticRoute() {
   }
 }
 
+// Get user location (manual button)
 function updateCurrentLocation() {
   if (!navigator.geolocation) {
     alert("Geolocation not supported");
@@ -136,6 +151,7 @@ function updateCurrentLocation() {
   }, geoError, { enableHighAccuracy: true });
 }
 
+// Update user marker automatically
 function updateUserPosition(pos) {
   const lat = pos.coords.latitude;
   const lng = pos.coords.longitude;
@@ -154,41 +170,67 @@ function updateUserPosition(pos) {
   }
 }
 
-// ✅ New: Tag current location and draw path
+// ✅ Tag location with green icon and connect with polyline
 function tagCurrentLocation() {
-    if (!navigator.geolocation) {
-      alert("Geolocation not supported");
-      return;
-    }
-  
-    navigator.geolocation.getCurrentPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-  
-      const latlng = [lat, lng];
-      taggedPoints.push(latlng);
-  
-      const marker = L.marker(latlng, { icon: redIcon })
-        .addTo(map)
-        .bindPopup("Tagged Point " + taggedPoints.length);
-      marker.openPopup();
-  
-      if (taggedPoints.length >= 2) {
-        if (taggedRouteLine) {
-          taggedRouteLine.setLatLngs(taggedPoints);
-        } else {
-          taggedRouteLine = L.polyline(taggedPoints, {
-            color: "green",
-            weight: 4
-          }).addTo(map);
-        }
-        map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
-      }
-  
-    }, geoError, { enableHighAccuracy: true });
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported");
+    return;
   }
-  
 
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    const latlng = [lat, lng];
+    taggedPoints.push(latlng);
+
+    const marker = L.marker(latlng, { icon: taggedIcon })
+      .addTo(map)
+      .bindPopup("Tagged Point " + taggedPoints.length);
+    marker.openPopup();
+
+    if (taggedPoints.length >= 2) {
+      if (taggedRouteLine) {
+        taggedRouteLine.setLatLngs(taggedPoints);
+      } else {
+        taggedRouteLine = L.polyline(taggedPoints, {
+          color: "green",
+          weight: 4
+        }).addTo(map);
+      }
+      map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+    }
+
+  }, geoError, { enableHighAccuracy: true });
+}
+
+// ✅ Clear all tagged points and line
+function clearTaggedLocations() {
+  taggedPoints = [];
+
+  // Remove all tagged markers (but not user or static markers)
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker &&
+        layer !== userMarker &&
+        !staticPoints.some(p =>
+          layer.getLatLng().lat.toFixed(6) === p.lat.toFixed(6) &&
+          layer.getLatLng().lng.toFixed(6) === p.lng.toFixed(6)
+        )
+    ) {
+      map.removeLayer(layer);
+    }
+  });
+
+  // Remove polyline
+  if (taggedRouteLine) {
+    map.removeLayer(taggedRouteLine);
+    taggedRouteLine = null;
+  }
+
+  alert("Tagged locations cleared.");
+}
+
+// Handle geolocation errors
 function geoError(err) {
   console.error("Geolocation error:", err.message, err);
   alert("Error getting location: " + err.message);
