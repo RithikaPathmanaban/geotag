@@ -5,8 +5,6 @@ let taggedMarkers = [];
 let isFollowingRoute = false;
 let startNavBtn = document.getElementById("btnStartNavigation");
 
-
-
 // Store saved routes as { routeName: [ [lat,lng], ... ] }
 let savedRoutes = {};
 
@@ -103,10 +101,10 @@ function initApp() {
   document
     .getElementById("savedRoutesDropdown")
     .addEventListener("change", loadRoute);
-    document
+  document
     .getElementById("btnStopNavigation")
     .addEventListener("click", stopNavigation);
-  
+
   loadSavedRoutes();
 
   if (navigator.geolocation) {
@@ -161,7 +159,6 @@ function drawStaticRoute() {
     L.marker([lat, lng])
       .addTo(map)
       .bindPopup("Point " + (i + 1));
-      
   });
 
   try {
@@ -270,35 +267,25 @@ function tagCurrentLocation() {
   );
 }
 
-
 // Clear all tagged points and line
 function clearTaggedLocations(showAlert = true) {
-  // Clear the tagged points array
   taggedPoints = [];
-
-  // Remove all tagged markers from the map
   taggedMarkers.forEach((marker) => {
     map.removeLayer(marker);
   });
-
-  // Clear the tagged markers array
   taggedMarkers = [];
 
-  // Remove the tagged route polyline if it exists
   if (taggedRouteLine) {
     map.removeLayer(taggedRouteLine);
     taggedRouteLine = null;
   }
 
-  // Reset the saved routes dropdown selection
   document.getElementById("savedRoutesDropdown").value = "";
 
-  // Optionally show alert to user
   if (showAlert) {
     alert("Tagged locations cleared.");
   }
 }
-
 
 // Save the current tagged route with a given name
 function saveCurrentRoute() {
@@ -314,7 +301,6 @@ function saveCurrentRoute() {
     alert("Tag at least two points to save a route.");
     return;
   }
-  
 
   savedRoutes[name] = taggedPoints.slice(); // clone the array
   localStorage.setItem("savedRoutes", JSON.stringify(savedRoutes));
@@ -372,7 +358,6 @@ function loadRoute() {
 
   taggedPoints = sorted;
 
-  // Clear taggedMarkers just in case
   taggedMarkers = [];
 
   taggedPoints.forEach((latlng, i) => {
@@ -394,25 +379,19 @@ function loadRoute() {
 
   map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
 
-  // Start navigation tracking
-  // isFollowingRoute = true;
   // Show start navigation button
+  if (!startNavBtn) {
+    startNavBtn = document.createElement("button");
+    startNavBtn.id = "btnStartNavigation";
+    startNavBtn.textContent = "Start Navigation";
+    startNavBtn.style.marginTop = "10px";
+    document.getElementById("controlsPanel").appendChild(startNavBtn);
 
-if (!startNavBtn) {
-  startNavBtn = document.createElement("button");
-  startNavBtn.id = "btnStartNavigation";
-  startNavBtn.textContent = "Start Navigation";
-  startNavBtn.style.marginTop = "10px";
-  document.getElementById("controlsPanel").appendChild(startNavBtn);
+    startNavBtn.addEventListener("click", startNavigation);
+  }
 
-  startNavBtn.addEventListener("click", startNavigation);
+  startNavBtn.style.display = "inline-block"; // make sure it's visible
 }
-
-startNavBtn.style.display = "inline-block"; // make sure it's visible
-
-}
-
-
 
 // Handle geolocation errors
 function geoError(err) {
@@ -425,6 +404,7 @@ function toggleControls() {
   panel.classList.toggle("hidden");
 }
 
+// Trim points that user already passed during navigation
 function trimCompletedRoute(currentLatLng) {
   if (!taggedRouteLine) return;
   if (taggedPoints.length === 0) return;
@@ -457,17 +437,19 @@ function trimCompletedRoute(currentLatLng) {
       }).addTo(map);
     } else {
       taggedRouteLine = null; // No points left
+      isFollowingRoute = false;
+      alert("Navigation complete!");
     }
   }
 }
 
+// Sort points starting from the closest to current location
 function sortRouteFromStart(startLatLng, points) {
   const remaining = points.slice();
   const ordered = [];
   let current = [startLatLng[0], startLatLng[1]];
 
   while (remaining.length > 0) {
-    // find nearest
     let minIdx = 0;
     let minDist = Infinity;
     for (let i = 0; i < remaining.length; i++) {
@@ -483,6 +465,8 @@ function sortRouteFromStart(startLatLng, points) {
   }
   return ordered;
 }
+
+// Calculate distance between two latlng points in meters
 function haversineDistance(a, b) {
   const R = 6371e3; // metres
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -494,31 +478,74 @@ function haversineDistance(a, b) {
   const sa =
     Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
     Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
   const c = 2 * Math.atan2(Math.sqrt(sa), Math.sqrt(1 - sa));
-
-  return R * c; // in metres
+  const d = R * c;
+  return d;
 }
 
-function stopNavigation() {
-  isFollowingRoute = false;
-  clearTaggedLocations(false);
-  document.getElementById("savedRoutesDropdown").value = "";
-  const btn = document.getElementById("btnStartNavigation");
-if (btn) btn.style.display = "none";
-
-  alert("Navigation stopped.");
-}
-
+// Start navigation from current user location
 function startNavigation() {
   if (!userMarker) {
     alert("User location not available. Please allow location access.");
     return;
   }
-  isFollowingRoute = true;
 
-  // Hide start button once navigation starts
-  const btn = document.getElementById("btnStartNavigation");
-  if (btn) btn.style.display = "none";
+  if (taggedPoints.length < 1) {
+    alert("No tagged points to navigate.");
+    return;
+  }
+
+  const userLatLng = userMarker.getLatLng();
+  const userPos = [userLatLng.lat, userLatLng.lng];
+
+  // Build new route starting from user location + tagged points
+  const routeWithUserStart = [userPos, ...taggedPoints];
+
+  // Remove old polyline if any
+  if (taggedRouteLine) {
+    map.removeLayer(taggedRouteLine);
+  }
+
+  // Draw new polyline starting from user position
+  taggedRouteLine = L.polyline(routeWithUserStart, {
+    color: "green",
+    weight: 4,
+  }).addTo(map);
+
+  isFollowingRoute = true; // enable trimming in updateUserPosition
+
+  // Hide start button
+  if (startNavBtn) startNavBtn.style.display = "none";
+
+  // Show stop navigation button
+  const stopBtn = document.getElementById("btnStopNavigation");
+  if (stopBtn) stopBtn.style.display = "inline-block";
+
+  map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
 
   alert("Navigation started.");
+}
+
+// Stop navigation
+function stopNavigation() {
+  isFollowingRoute = false;
+
+  // Remove navigation polyline
+  if (taggedRouteLine) {
+    map.removeLayer(taggedRouteLine);
+    taggedRouteLine = null;
+  }
+
+  // Clear all tags and markers
+  clearTaggedLocations(false);
+
+  // Hide stop button
+  const stopBtn = document.getElementById("btnStopNavigation");
+  if (stopBtn) stopBtn.style.display = "none";
+
+  // Show start button if taggedPoints exist (unlikely since cleared)
+  if (startNavBtn) startNavBtn.style.display = "none";
+
+  alert("Navigation stopped and cleared.");
 }
