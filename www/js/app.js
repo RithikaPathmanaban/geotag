@@ -3,6 +3,7 @@ let taggedPoints = [];
 let taggedRouteLine = null;
 let taggedMarkers = [];
 let isFollowingRoute = false;
+let startNavBtn = document.getElementById("btnStartNavigation");
 
 
 
@@ -394,7 +395,21 @@ function loadRoute() {
   map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
 
   // Start navigation tracking
-  isFollowingRoute = true;
+  // isFollowingRoute = true;
+  // Show start navigation button
+
+if (!startNavBtn) {
+  startNavBtn = document.createElement("button");
+  startNavBtn.id = "btnStartNavigation";
+  startNavBtn.textContent = "Start Navigation";
+  startNavBtn.style.marginTop = "10px";
+  document.getElementById("controlsPanel").appendChild(startNavBtn);
+
+  startNavBtn.addEventListener("click", startNavigation);
+}
+
+startNavBtn.style.display = "inline-block"; // make sure it's visible
+
 }
 
 
@@ -488,5 +503,22 @@ function stopNavigation() {
   isFollowingRoute = false;
   clearTaggedLocations(false);
   document.getElementById("savedRoutesDropdown").value = "";
+  const btn = document.getElementById("btnStartNavigation");
+if (btn) btn.style.display = "none";
+
   alert("Navigation stopped.");
+}
+
+function startNavigation() {
+  if (!userMarker) {
+    alert("User location not available. Please allow location access.");
+    return;
+  }
+  isFollowingRoute = true;
+
+  // Hide start button once navigation starts
+  const btn = document.getElementById("btnStartNavigation");
+  if (btn) btn.style.display = "none";
+
+  alert("Navigation started.");
 }
