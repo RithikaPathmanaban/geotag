@@ -124,12 +124,20 @@ function initApp() {
 
 // Map setup
 function initMap() {
+  // Initialize map centered at first static point
   map = L.map("map").setView([staticPoints[0].lat, staticPoints[0].lng], 18);
 
+  // Add OpenStreetMap tile layer
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "© OpenStreetMap contributors",
   }).addTo(map);
+
+  // Enable tagging by clicking on the map
+  map.on("click", function (e) {
+    const latlng = [e.latlng.lat, e.latlng.lng];
+    addTaggedPoint(latlng, "Pinned Point " + (taggedPoints.length + 1));
+  });
 }
 
 // Draw static route (blue line)
@@ -227,6 +235,33 @@ function updateUserPosition(pos) {
   }
 }
 
+function addTaggedPoint(latlng, label) {
+  taggedPoints.push(latlng);
+
+  const marker = L.marker(latlng, { icon: taggedIcon })
+    .addTo(map)
+    .bindPopup(label || "Tagged Point " + taggedPoints.length);
+  marker.openPopup();
+
+  taggedMarkers.push(marker);
+
+  if (taggedPoints.length >= 2) {
+    if (taggedRouteLine) {
+      taggedRouteLine.setLatLngs(taggedPoints);
+    } else {
+      taggedRouteLine = L.polyline(taggedPoints, {
+        color: "green",
+        weight: 4,
+      }).addTo(map);
+    }
+  }
+
+  if (taggedRouteLine) {
+    map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+  }
+}
+
+
 // Tag location with green icon and connect with polyline
 function tagCurrentLocation() {
   if (!navigator.geolocation) {
@@ -238,36 +273,13 @@ function tagCurrentLocation() {
     (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
-
-      const latlng = [lat, lng];
-      taggedPoints.push(latlng);
-
-      const marker = L.marker(latlng, { icon: taggedIcon })
-        .addTo(map)
-        .bindPopup("Tagged Point " + taggedPoints.length);
-      marker.openPopup();
-
-      taggedMarkers.push(marker); // Save for later removal
-
-      if (taggedPoints.length >= 2) {
-        if (taggedRouteLine) {
-          taggedRouteLine.setLatLngs(taggedPoints);
-        } else {
-          taggedRouteLine = L.polyline(taggedPoints, {
-            color: "green",
-            weight: 4,
-          }).addTo(map);
-        }
-      }
-
-      if (taggedRouteLine) {
-        map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
-      }
+      addTaggedPoint([lat, lng], "Tagged Current Location");
     },
     geoError,
     { enableHighAccuracy: true }
   );
 }
+
 
 // Clear all tagged points and line
 function clearTaggedLocations(showAlert = true) {
