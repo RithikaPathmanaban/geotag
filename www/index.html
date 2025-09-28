@@ -1,17 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Offline Route Planner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-o5U8C+SmM6+X3hHhPz2Qq2M0sNp04WutgUnnDn3yE1Y="
-    crossorigin=""/>
+    crossorigin=""
+  />
 
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
     #controls {
       padding: 10px;
       background: #f2f2f2;
@@ -25,38 +31,38 @@
     }
     #map {
       width: 100%;
-      height: 80vh;
+      height: 80vh; /* Must have height for map to show */
     }
-    button, select, input {
+    button,
+    select,
+    input {
       padding: 5px 10px;
     }
   </style>
 </head>
 <body>
+  <div id="controls">
+    <label>Latitude: <input type="text" id="lat" readonly /></label>
+    <label>Longitude: <input type="text" id="lng" readonly /></label>
+    <button id="pinModeBtn">Enable Pin Mode</button>
+    <input type="text" id="routeName" placeholder="Route Name" />
+    <button id="saveRouteBtn">Save Route</button>
+    <select id="routeSelect">
+      <option value="">-- Select Saved Route --</option>
+    </select>
+    <button id="clearBtn">Clear Pins</button>
+    <button id="optimizeBtn">Optimize Route</button>
+    <button id="navBtn">Navigate in Google Maps</button>
+  </div>
 
-<div id="controls">
-  <label>Latitude: <input type="text" id="lat" readonly></label>
-  <label>Longitude: <input type="text" id="lng" readonly></label>
-  <button id="pinModeBtn">Enable Pin Mode</button>
-  <input type="text" id="routeName" placeholder="Route Name">
-  <button id="saveRouteBtn">Save Route</button>
-  <select id="routeSelect">
-    <option value="">-- Select Saved Route --</option>
-  </select>
-  <button id="clearBtn">Clear Pins</button>
-  <button id="optimizeBtn">Optimize Route</button>
-  <button id="navBtn">Navigate in Google Maps</button>
-</div>
+  <div id="map"></div>
 
-<div id="map"></div>
-
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-vI0CqG2m2fIGG/PXt4EBLlvXa/3Qx+KywM8ycmBZF+Y="
-  crossorigin=""></script>
-
-<!-- App JS -->
-<script src="app.js"></script>
-
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-vI0CqG2m2fIGG/PXt4EBLlvXa/3Qx+KywM8ycmBZF+Y="
+    crossorigin=""
+  ></script>
+  <script src="app.js"></script>
 </body>
 </html>
