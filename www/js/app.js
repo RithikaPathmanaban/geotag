@@ -1,49 +1,35 @@
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+let map;
+let currentMarker = null;
 let pinMode = false;
-let pins = []; // { x, y, lat, lng }
-let currentPos = null;
-let mapRect = null;
+let pins = []; // { marker, lat, lng }
+let routePolyline = null;
 
-function resizeCanvas() {
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  mapRect = canvas.getBoundingClientRect();
-  redraw();
-}
+const latField = document.getElementById('lat');
+const lngField = document.getElementById('lng');
 
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+function initMap() {
+  map = L.map('map').setView([0, 0], 2);
 
-function redraw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-  // Draw route lines
-  for (let i = 0; i < pins.length - 1; i++) {
-    ctx.beginPath();
-    ctx.moveTo(pins[i].x, pins[i].y);
-    ctx.lineTo(pins[i + 1].x, pins[i + 1].y);
-    ctx.strokeStyle = 'blue';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
+  // Geolocation
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      latField.value = lat.toFixed(6);
+      lngField.value = lng.toFixed(6);
 
-  // Draw pins
-  pins.forEach((pin, idx) => {
-    ctx.beginPath();
-    ctx.arc(pin.x, pin.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = idx === 0 ? 'green' : 'red';
-    ctx.fill();
-    ctx.stroke();
-  });
+      map.setView([lat, lng], 15);
 
-  // Draw current location
-  if (currentPos) {
-    ctx.beginPath();
-    ctx.arc(currentPos.x, currentPos.y, 8, 0, Math.PI * 2);
-    ctx.fillStyle = 'orange';
-    ctx.fill();
-    ctx.stroke();
+      currentMarker = L.marker([lat, lng], { icon: greenIcon() }).addTo(map)
+        .bindPopup('Current Location')
+        .openPopup();
+    }, () => {
+      alert('Geolocation failed.');
+    });
   }
 }
 
@@ -52,46 +38,96 @@ document.getElementById('pinModeBtn').onclick = () => {
   document.getElementById('pinModeBtn').innerText = pinMode ? 'Disable Pin Mode' : 'Enable Pin Mode';
 };
 
-canvas.addEventListener('click', (e) => {
-  if (!pinMode) return;
-  const x = e.offsetX;
-  const y = e.offsetY;
-
-  // Fake coordinates (simulate lat/lng)
-  const lat = parseFloat(document.getElementById('lat').value) + (Math.random() - 0.5) * 0.01;
-  const lng = parseFloat(document.getElementById('lng').value) + (Math.random() - 0.5) * 0.01;
-
-  pins.push({ x, y, lat, lng });
-  redraw();
-});
-
 document.getElementById('clearBtn').onclick = () => {
+  pins.forEach(p => map.removeLayer(p.marker));
   pins = [];
-  redraw();
+  if (routePolyline) {
+    map.removeLayer(routePolyline);
+    routePolyline = null;
+  }
 };
 
 document.getElementById('saveRouteBtn').onclick = () => {
   const name = document.getElementById('routeName').value.trim();
   if (!name) return alert('Enter a route name');
-  const routes = JSON.parse(localStorage.getItem('routes') || '{}');
-  routes[name] = pins;
-  localStorage.setItem('routes', JSON.stringify(routes));
+
+  const saved = JSON.parse(localStorage.getItem('routes') || '{}');
+  saved[name] = pins.map(p => ({ lat: p.lat, lng: p.lng }));
+  localStorage.setItem('routes', JSON.stringify(saved));
   loadRoutes();
 };
 
 document.getElementById('routeSelect').onchange = (e) => {
   const name = e.target.value;
   if (!name) return;
-  const routes = JSON.parse(localStorage.getItem('routes') || '{}');
-  pins = routes[name] || [];
-  redraw();
+
+  const saved = JSON.parse(localStorage.getItem('routes') || '{}');
+  const coords = saved[name] || [];
+
+  // Clear existing
+  pins.forEach(p => map.removeLayer(p.marker));
+  if (routePolyline) map.removeLayer(routePolyline);
+  pins = [];
+
+  coords.forEach(coord => {
+    const marker = L.marker([coord.lat, coord.lng]).addTo(map);
+    pins.push({ marker, lat: coord.lat, lng: coord.lng });
+  });
+
+  drawRoute();
 };
+
+document.getElementById('optimizeBtn').onclick = () => {
+  if (pins.length < 3) return alert('Add at least 3 pins.');
+
+  const start = pins[0];
+  const unvisited = pins.slice(1);
+  const optimized = [start];
+
+  let current = start;
+  while (unvisited.length > 0) {
+    let nearestIdx = 0;
+    let minDist = haversine(current, unvisited[0]);
+    for (let i = 1; i < unvisited.length; i++) {
+      const dist = haversine(current, unvisited[i]);
+      if (dist < minDist) {
+        minDist = dist;
+        nearestIdx = i;
+      }
+    }
+    current = unvisited.splice(nearestIdx, 1)[0];
+    optimized.push(current);
+  }
+
+  // Reorder pins
+  pins = optimized;
+  drawRoute();
+};
+
+document.getElementById('navBtn').onclick = () => {
+  if (!currentMarker || pins.length < 1) return alert('Not enough points.');
+
+  const origin = currentMarker.getLatLng();
+  const destination = pins[pins.length - 1];
+  const waypoints = pins.slice(0, -1)
+    .map(p => `${p.lat},${p.lng}`)
+    .join('|');
+
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypoints}&travelmode=driving`;
+  window.open(url, '_blank');
+};
+
+function drawRoute() {
+  if (routePolyline) map.removeLayer(routePolyline);
+  const latlngs = pins.map(p => [p.lat, p.lng]);
+  routePolyline = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+}
 
 function loadRoutes() {
   const select = document.getElementById('routeSelect');
   select.innerHTML = '<option value="">-- Select Saved Route --</option>';
-  const routes = JSON.parse(localStorage.getItem('routes') || '{}');
-  Object.keys(routes).forEach(name => {
+  const saved = JSON.parse(localStorage.getItem('routes') || '{}');
+  Object.keys(saved).forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
     opt.innerText = name;
@@ -99,67 +135,38 @@ function loadRoutes() {
   });
 }
 
-if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-    document.getElementById('lat').value = lat.toFixed(6);
-    document.getElementById('lng').value = lng.toFixed(6);
-    currentPos = {
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      lat,
-      lng
-    };
-    redraw();
-  }, err => {
-    alert("Geolocation failed.");
+function greenIcon() {
+  return new L.Icon({
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+    iconSize: [25, 41],
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
   });
 }
 
-document.getElementById('optimizeBtn').onclick = () => {
-  if (pins.length < 3) return alert('Add at least 3 points to optimize.');
+function haversine(a, b) {
+  const toRad = deg => deg * Math.PI / 180;
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
 
-  const start = pins[0];
-  let unvisited = pins.slice(1);
-  let route = [start];
-
-  let current = start;
-  while (unvisited.length > 0) {
-    let nearestIdx = 0;
-    let minDist = distance(current, unvisited[0]);
-    for (let i = 1; i < unvisited.length; i++) {
-      const dist = distance(current, unvisited[i]);
-      if (dist < minDist) {
-        minDist = dist;
-        nearestIdx = i;
-      }
-    }
-    current = unvisited.splice(nearestIdx, 1)[0];
-    route.push(current);
-  }
-
-  pins = route;
-  redraw();
-};
-
-function distance(p1, p2) {
-  const dx = p1.x - p2.x;
-  const dy = p1.y - p2.y;
-  return Math.sqrt(dx * dx + dy * dy);
+  const aVal = Math.sin(dLat/2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(aVal), Math.sqrt(1 - aVal));
 }
 
-document.getElementById('navBtn').onclick = () => {
-  if (!currentPos || pins.length < 1) return alert("Not enough points to navigate.");
-
-  const origin = `${currentPos.lat},${currentPos.lng}`;
-  const destination = `${pins[pins.length - 1].lat},${pins[pins.length - 1].lng}`;
-  const waypoints = pins.slice(0, pins.length - 1)
-    .map(p => `${p.lat},${p.lng}`)
-    .join('|');
-
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
-  window.open(url, '_blank');
+mapClickHandler = (e) => {
+  if (!pinMode) return;
+  const { lat, lng } = e.latlng;
+  const marker = L.marker([lat, lng]).addTo(map);
+  pins.push({ marker, lat, lng });
+  drawRoute();
 };
 
+initMap();
+map.on('click', mapClickHandler);
 loadRoutes();

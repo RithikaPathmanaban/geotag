@@ -3,28 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <title>Offline Route Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-o5U8C+SmM6+X3hHhPz2Qq2M0sNp04WutgUnnDn3yE1Y="
+    crossorigin=""/>
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    body { margin: 0; font-family: Arial, sans-serif; }
     #controls {
       padding: 10px;
       background: #f2f2f2;
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-    }
-    #mapCanvas {
-      width: 100%;
-      height: 80vh;
-      background: #eee;
-      position: relative;
-      cursor: crosshair;
+      align-items: center;
     }
     input[readonly] {
       background: #eee;
     }
-    canvas {
+    #map {
       width: 100%;
-      height: 100%;
+      height: 80vh;
+    }
+    button, select, input {
+      padding: 5px 10px;
     }
   </style>
 </head>
@@ -44,10 +48,15 @@
   <button id="navBtn">Navigate in Google Maps</button>
 </div>
 
-<div id="mapCanvas">
-  <canvas id="canvas"></canvas>
-</div>
+<div id="map"></div>
 
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-vI0CqG2m2fIGG/PXt4EBLlvXa/3Qx+KywM8ycmBZF+Y="
+  crossorigin=""></script>
+
+<!-- App JS -->
 <script src="app.js"></script>
+
 </body>
 </html>
