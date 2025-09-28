@@ -14,7 +14,7 @@ const staticPoints = [
 
 // Red icon: current user location
 const redIcon = L.icon({
-  iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Google_Maps_icon.svg/512px-Google_Maps_icon.svg.png',
+  iconUrl: 'https://icons-for-free.com/iconfiles/png/512/arrow+blue+direction+forward+icon-1320186339320939879.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
