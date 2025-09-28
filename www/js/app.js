@@ -136,26 +136,41 @@ document.getElementById("savedRoutesDropdown").addEventListener("change", () => 
 });
 
 // TSP optimization (nearest neighbour)
-function optimizeRoute(start, points) {
-  const remaining = points.slice();
-  const ordered = [];
-  let current = start;
-  while (remaining.length > 0) {
-    let minIdx = 0,
-      minDist = haversineDistance(current, remaining[0]);
-    for (let i = 1; i < remaining.length; i++) {
-      const dist = haversineDistance(current, remaining[i]);
-      if (dist < minDist) {
-        minDist = dist;
-        minIdx = i;
-      }
+// Exact TSP solver (brute force, fine for small number of points)
+function tspRoute(start, points) {
+  const permute = (arr) => {
+    if (arr.length <= 1) return [arr];
+    const result = [];
+    for (let i = 0; i < arr.length; i++) {
+      const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+      const perms = permute(rest);
+      perms.forEach(p => result.push([arr[i], ...p]));
     }
-    const next = remaining.splice(minIdx, 1)[0];
-    ordered.push(next);
-    current = next;
-  }
-  return ordered;
+    return result;
+  };
+
+  let bestOrder = [];
+  let bestDist = Infinity;
+
+  const permutations = permute(points);
+  permutations.forEach(order => {
+    let totalDist = 0;
+    let current = start;
+
+    order.forEach(p => {
+      totalDist += haversineDistance(current, p);
+      current = p;
+    });
+
+    if (totalDist < bestDist) {
+      bestDist = totalDist;
+      bestOrder = order;
+    }
+  });
+
+  return bestOrder;
 }
+
 
 // Haversine distance
 function haversineDistance(a, b) {
@@ -188,9 +203,9 @@ document.getElementById("btnStartNavigation").addEventListener("click", () => {
 function recalcNavigation(currentLocation) {
   if (taggedPoints.length < 1) return;
   
-  const orderedPoints = optimizeRoute(currentLocation, taggedPoints);
+  const orderedPoints = tspRoute(currentLocation, taggedPoints);
   const waypoints = [L.latLng(...currentLocation)];
-  orderedPoints.forEach((p) => waypoints.push(L.latLng(...p)));
+  orderedPoints.forEach(p => waypoints.push(L.latLng(...p)));
 
   if (routingControl) {
     map.removeControl(routingControl);
@@ -202,22 +217,21 @@ function recalcNavigation(currentLocation) {
     router: L.Routing.osrmv1({
       serviceUrl: "https://router.project-osrm.org/route/v1",
       profile: "car",
-      routingOptions: { alternatives: false },  // Disable alternative routes
     }),
     lineOptions: {
       styles: [{ color: "blue", weight: 5, opacity: 0.8 }],
     },
-    createMarker: function (i, wp, n) {
-      return L.marker(wp.latLng, i === 0 ? { icon: redIcon } : { icon: taggedIcon });
-    },
+    createMarker: (i, wp, n) => 
+      L.marker(wp.latLng, i === 0 ? { icon: redIcon } : { icon: taggedIcon }),
     addWaypoints: false,
     draggableWaypoints: false,
     routeWhileDragging: false,
-    show: false,
     fitSelectedRoutes: true,
-    containerClassName: "leaflet-routing-container-hide",
+    show: false,
+    containerClassName: "leaflet-routing-container-hide"
   }).addTo(map);
 }
+
 
 
 // Watch user location
