@@ -14,7 +14,7 @@ const staticPoints = [
 
 // Red icon: current user location
 const redIcon = L.icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/1828/1828817.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -24,7 +24,7 @@ const redIcon = L.icon({
 
 // Green custom icon: tagged locations
 const taggedIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854878.png',
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
   iconSize: [30, 30],
   iconAnchor: [15, 30],
   popupAnchor: [0, -30],
