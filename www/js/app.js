@@ -1,6 +1,8 @@
 let map, routeLine, userMarker, watchId;
 let taggedPoints = [];
 let taggedRouteLine = null;
+let taggedMarkers = [];
+
 
 // Store saved routes as { routeName: [ [lat,lng], ... ] }
 let savedRoutes = {};
@@ -214,7 +216,9 @@ function updateUserPosition(pos) {
   }
 
   // After moving, trim the taggedPoints if the user has passed them
-  trimCompletedRoute([lat, lng]);
+  if (isFollowingRoute) {
+    trimCompletedRoute([lat, lng]);
+  }
 }
 
 // Tag location with green icon and connect with polyline
@@ -230,14 +234,15 @@ function tagCurrentLocation() {
       const lng = pos.coords.longitude;
 
       const latlng = [lat, lng];
-      taggedPoints.push(latlng); // Store latlng as [lat, lng]
+      taggedPoints.push(latlng);
 
       const marker = L.marker(latlng, { icon: taggedIcon })
         .addTo(map)
         .bindPopup("Tagged Point " + taggedPoints.length);
       marker.openPopup();
 
-      // If two or more points exist, draw or update the polyline
+      taggedMarkers.push(marker); // Save for later removal
+
       if (taggedPoints.length >= 2) {
         if (taggedRouteLine) {
           taggedRouteLine.setLatLngs(taggedPoints);
@@ -249,7 +254,6 @@ function tagCurrentLocation() {
         }
       }
 
-      // Always fit map to show all tagged points
       if (taggedRouteLine) {
         map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
       }
@@ -264,19 +268,10 @@ function tagCurrentLocation() {
 function clearTaggedLocations(showAlert = true) {
   taggedPoints = [];
 
-  map.eachLayer((layer) => {
-    if (
-      layer instanceof L.Marker &&
-      layer !== userMarker &&
-      !staticPoints.some(
-        (p) =>
-          layer.getLatLng().lat.toFixed(6) === p.lat.toFixed(6) &&
-          layer.getLatLng().lng.toFixed(6) === p.lng.toFixed(6)
-      )
-    ) {
-      map.removeLayer(layer);
-    }
+  taggedMarkers.forEach((marker) => {
+    map.removeLayer(marker);
   });
+  taggedMarkers = [];
 
   if (taggedRouteLine) {
     map.removeLayer(taggedRouteLine);
@@ -285,11 +280,11 @@ function clearTaggedLocations(showAlert = true) {
 
   document.getElementById("savedRoutesDropdown").value = "";
 
-  // Only show alert if explicitly asked
   if (showAlert) {
     alert("Tagged locations cleared.");
   }
 }
+
 
 // Save the current tagged route with a given name
 function saveCurrentRoute() {
