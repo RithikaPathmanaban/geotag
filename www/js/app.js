@@ -4,12 +4,12 @@ let taggedRouteLine = null;
 
 // === 6 static route points around Chennai ===
 const staticPoints = [
-  { lat: 12.97987, lng: 80.23985 },
-  { lat: 12.97997, lng: 80.23992 },
-  { lat: 12.98016, lng: 80.23995 },
-  { lat: 12.98015, lng: 80.23976 },
-  { lat: 12.98007, lng: 80.23956 },
-  { lat: 12.98017, lng: 80.23954 },
+  { lat: 12.98052, lng: 80.24285},
+  { lat: 12.98025, lng: 80.24291},
+  { lat: 12.98061, lng: 80.24318 },
+  { lat: 12.98053, lng: 80.24365},
+  { lat: 12.98025, lng: 80.24371},
+  { lat: 12.98001, lng: 80.24352 },
 ];
 
 // Red icon: current user location
