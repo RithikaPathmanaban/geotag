@@ -155,7 +155,7 @@ function drawStaticRoute() {
     L.marker([lat, lng])
       .addTo(map)
       .bindPopup("Point " + (i + 1));
-      taggedMarkers.push(marker);
+      
   });
 
   try {
@@ -267,35 +267,24 @@ function tagCurrentLocation() {
 
 // Clear all tagged points and line
 function clearTaggedLocations(showAlert = true) {
-  // Clear the array of coordinates
   taggedPoints = [];
 
-  // Remove all tagged markers from the map
   taggedMarkers.forEach((marker) => {
     map.removeLayer(marker);
   });
-
-  // Reset marker storage
   taggedMarkers = [];
 
-  // Remove the green polyline if it exists
   if (taggedRouteLine) {
     map.removeLayer(taggedRouteLine);
     taggedRouteLine = null;
   }
 
-  // Reset dropdown selection if any
-  const dropdown = document.getElementById("savedRoutesDropdown");
-  if (dropdown) {
-    dropdown.value = "";
-  }
+  document.getElementById("savedRoutesDropdown").value = "";
 
-  // Optional: Show alert
   if (showAlert) {
     alert("Tagged locations cleared.");
   }
 }
-
 
 
 // Save the current tagged route with a given name
