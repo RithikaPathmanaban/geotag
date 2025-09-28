@@ -4,6 +4,8 @@ let taggedRouteLine = null;
 let taggedMarkers = [];
 let isFollowingRoute = false;
 let startNavBtn = document.getElementById("btnStartNavigation");
+let routingControl = null;
+
 
 // Store saved routes as { routeName: [ [lat,lng], ... ] }
 let savedRoutes = {};
@@ -485,27 +487,24 @@ function haversineDistance(coord1, coord2) {
 function stopNavigation() {
   isFollowingRoute = false;
 
-  if (taggedRouteLine) {
-    map.removeLayer(taggedRouteLine);
-    taggedRouteLine = null;
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
   }
 
+  // Clear markers & points
   taggedPoints = [];
-  taggedMarkers.forEach((marker) => {
-    map.removeLayer(marker);
-  });
+  taggedMarkers.forEach((marker) => map.removeLayer(marker));
   taggedMarkers = [];
 
-  // Hide stop button and show start button
   document.getElementById("btnStopNavigation").style.display = "none";
-  if (startNavBtn) {
-    startNavBtn.style.display = "inline-block";
-  }
+  if (startNavBtn) startNavBtn.style.display = "inline-block";
 
   alert("Navigation stopped and cleared.");
 }
 
 // START NAVIGATION (Updated as requested)
+// START NAVIGATION using road-based routing
 function startNavigation() {
   if (!userMarker) {
     alert("User location not available. Please allow location access.");
@@ -518,38 +517,36 @@ function startNavigation() {
   }
 
   const userLatLng = userMarker.getLatLng();
-  const userPos = [userLatLng.lat, userLatLng.lng];
+  const waypoints = [L.latLng(userLatLng.lat, userLatLng.lng)];
 
-  // Sort tagged points starting from user's current location
-  const sortedPoints = sortRouteFromStart(userPos, taggedPoints);
+  // Add tagged points as waypoints
+  taggedPoints.forEach((p) => {
+    waypoints.push(L.latLng(p[0], p[1]));
+  });
 
-  // Build new route starting from user location + sorted tagged points
-  const routeWithUserStart = [userPos, ...sortedPoints];
-
-  // Remove old polyline if any
-  if (taggedRouteLine) {
-    map.removeLayer(taggedRouteLine);
+  // Remove old routing control if exists
+  if (routingControl) {
+    map.removeControl(routingControl);
   }
 
-  // Draw new polyline starting from user position
-  taggedRouteLine = L.polyline(routeWithUserStart, {
-    color: "green",
-    weight: 4,
+  // Create routing control (road based)
+  routingControl = L.Routing.control({
+    waypoints: waypoints,
+    routeWhileDragging: false,
+    show: false,
+    addWaypoints: false,
+    draggableWaypoints: false,
+    fitSelectedRoutes: true,
+    lineOptions: {
+      styles: [{ color: "green", weight: 5 }],
+    },
   }).addTo(map);
 
-  // Update taggedPoints with the sorted order for trimming logic
-  taggedPoints = sortedPoints;
+  isFollowingRoute = true;
 
-  isFollowingRoute = true; // enable trimming in updateUserPosition
-
-  // Hide start button
   if (startNavBtn) startNavBtn.style.display = "none";
-
-  // Show stop navigation button
   const stopBtn = document.getElementById("btnStopNavigation");
   if (stopBtn) stopBtn.style.display = "inline-block";
 
-  map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
-
-  alert("Navigation started.");
+  alert("Navigation started with road-based routing.");
 }
