@@ -156,34 +156,38 @@ function updateUserPosition(pos) {
 
 // ✅ New: Tag current location and draw path
 function tagCurrentLocation() {
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-
-    const latlng = [lat, lng];
-    taggedPoints.push(latlng);
-
-    const marker = L.marker(latlng, { icon: redIcon })
-      .addTo(map)
-      .bindPopup("Tagged Point " + taggedPoints.length);
-    marker.openPopup();
-
-    if (taggedPoints.length >= 2) {
-      if (taggedRouteLine) {
-        taggedRouteLine.setLatLngs(taggedPoints);
-      } else {
-        taggedRouteLine = L.polyline(taggedPoints, { color: "green", weight: 4, dashArray: '5, 10' }).addTo(map);
-      }
-      map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+    if (!navigator.geolocation) {
+      alert("Geolocation not supported");
+      return;
     }
-
-  }, geoError, { enableHighAccuracy: true });
-}
+  
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+  
+      const latlng = [lat, lng];
+      taggedPoints.push(latlng);
+  
+      const marker = L.marker(latlng, { icon: redIcon })
+        .addTo(map)
+        .bindPopup("Tagged Point " + taggedPoints.length);
+      marker.openPopup();
+  
+      if (taggedPoints.length >= 2) {
+        if (taggedRouteLine) {
+          taggedRouteLine.setLatLngs(taggedPoints);
+        } else {
+          taggedRouteLine = L.polyline(taggedPoints, {
+            color: "green",
+            weight: 4
+          }).addTo(map);
+        }
+        map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
+      }
+  
+    }, geoError, { enableHighAccuracy: true });
+  }
+  
 
 function geoError(err) {
   console.error("Geolocation error:", err.message, err);
