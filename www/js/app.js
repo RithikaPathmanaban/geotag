@@ -14,7 +14,7 @@ const staticPoints = [
 
 // Red icon: current user location
 const redIcon = L.icon({
-  iconUrl: 'https://cdn-icons-png.flaticon.com/512/32/32339.png',
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/1077/1077114.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
