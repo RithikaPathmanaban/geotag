@@ -2,6 +2,9 @@ let map, routeLine, userMarker, watchId;
 let taggedPoints = [];
 let taggedRouteLine = null;
 
+// Store saved routes as { routeName: [ [lat,lng], ... ] }
+let savedRoutes = {};
+
 // === 6 static route points around Chennai ===
 const staticPoints = [
   { lat: 12.98052, lng: 80.24285},
@@ -70,6 +73,11 @@ function initApp() {
   document.getElementById("btnGetLocation").addEventListener("click", updateCurrentLocation);
   document.getElementById("btnTagLocation").addEventListener("click", tagCurrentLocation);
   document.getElementById("btnClearTags").addEventListener("click", clearTaggedLocations);
+
+  document.getElementById("btnSaveRoute").addEventListener("click", saveCurrentRoute);
+  document.getElementById("savedRoutesDropdown").addEventListener("change", loadRoute);
+
+  loadSavedRoutes();
 
   if (navigator.geolocation) {
     watchId = navigator.geolocation.watchPosition(updateUserPosition, geoError, {
@@ -170,7 +178,7 @@ function updateUserPosition(pos) {
   }
 }
 
-// ✅ Tag location with green icon and connect with polyline
+// Tag location with green icon and connect with polyline
 function tagCurrentLocation() {
   if (!navigator.geolocation) {
     alert("Geolocation not supported");
@@ -204,11 +212,10 @@ function tagCurrentLocation() {
   }, geoError, { enableHighAccuracy: true });
 }
 
-// ✅ Clear all tagged points and line
+// Clear all tagged points and line
 function clearTaggedLocations() {
   taggedPoints = [];
 
-  // Remove all tagged markers (but not user or static markers)
   map.eachLayer(layer => {
     if (layer instanceof L.Marker &&
         layer !== userMarker &&
@@ -221,13 +228,87 @@ function clearTaggedLocations() {
     }
   });
 
-  // Remove polyline
   if (taggedRouteLine) {
     map.removeLayer(taggedRouteLine);
     taggedRouteLine = null;
   }
 
+  document.getElementById("savedRoutesDropdown").value = "";
+
   alert("Tagged locations cleared.");
+}
+
+// Save the current tagged route with a given name
+function saveCurrentRoute() {
+  const nameInput = document.getElementById("routeNameInput");
+  const name = nameInput.value.trim();
+
+  if (!name) {
+    alert("Please enter a route name.");
+    return;
+  }
+
+  if (taggedPoints.length < 2) {
+    alert("Tag at least two points to save a route.");
+    return;
+  }
+
+  savedRoutes[name] = taggedPoints.slice(); // clone the array
+  localStorage.setItem('savedRoutes', JSON.stringify(savedRoutes));
+
+  updateSavedRoutesDropdown();
+  nameInput.value = "";
+  alert(`Route "${name}" saved successfully.`);
+}
+
+// Load saved routes from localStorage on start
+function loadSavedRoutes() {
+  const saved = localStorage.getItem('savedRoutes');
+  if (saved) {
+    savedRoutes = JSON.parse(saved);
+    updateSavedRoutesDropdown();
+  }
+}
+
+// Update the dropdown options from savedRoutes object
+function updateSavedRoutesDropdown() {
+  const dropdown = document.getElementById("savedRoutesDropdown");
+  dropdown.innerHTML = '<option value="">Select a saved route</option>';
+
+  Object.keys(savedRoutes).forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    dropdown.appendChild(option);
+  });
+}
+
+// Load selected route from dropdown and display on map
+function loadRoute() {
+  const dropdown = document.getElementById("savedRoutesDropdown");
+  const selectedName = dropdown.value;
+
+  clearTaggedLocations();
+
+  if (!selectedName) return;
+
+  const points = savedRoutes[selectedName];
+  if (!points || points.length < 2) return;
+
+  taggedPoints = [...points];
+
+  taggedPoints.forEach((latlng, i) => {
+    L.marker(latlng, { icon: taggedIcon })
+      .addTo(map)
+      .bindPopup("Tagged Point " + (i + 1));
+  });
+
+  taggedRouteLine = L.polyline(taggedPoints, {
+    color: "green",
+    weight: 4
+  }).addTo(map);
+
+  map.fitBounds(taggedRouteLine.getBounds(), { padding: [30, 30] });
 }
 
 // Handle geolocation errors
