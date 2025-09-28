@@ -22,23 +22,69 @@
       }
 
       .controls {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 1000;
-        background: rgba(255, 255, 255, 0.95);
-        padding: 10px;
-        border-radius: 6px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-        width: 260px;
-      }
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.98);
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  width: 280px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-      .controls input,
-      .controls button {
-        width: 100%;
-        margin-top: 6px;
-        padding: 6px;
-      }
+/* Inputs and select */
+.controls input,
+.controls select {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1.5px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.controls input:focus,
+.controls select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 6px #a3cdfd;
+}
+
+/* Buttons container: flex layout for groups */
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Each button in group gets equal width */
+.button-group button {
+  flex: 1;
+}
+
+/* Buttons styling */
+.controls button {
+  background-color: #007bff;
+  border: none;
+  color: white;
+  padding: 10px 0;
+  font-size: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.controls button:hover {
+  background-color: #0056b3;
+}
+
+.controls button:active {
+  background-color: #003f7f;
+}
+
     </style>
 
     <!-- Leaflet JS -->
@@ -52,17 +98,22 @@
     <div class="controls">
       <input id="latField" placeholder="Latitude" readonly />
       <input id="lngField" placeholder="Longitude" readonly />
-      <button id="btnGetLocation">Get Current Location</button>
-      <button id="btnTagLocation">Tag Location</button>
-      <button id="btnClearTags">Clear Tagged Locations</button
-      ><!-- ✅ NEW BUTTON -->
+    
+      <div class="button-group">
+        <button id="btnGetLocation">Get Location</button>
+        <button id="btnTagLocation">Tag Location</button>
+      </div>
+    
+      <button id="btnClearTags" style="margin-top: 12px;">Clear Tagged Locations</button>
+    
       <input type="text" id="routeNameInput" placeholder="Enter route name" />
       <button id="btnSaveRoute">Save Route</button>
-
+    
       <select id="savedRoutesDropdown">
         <option value="">Select a saved route</option>
       </select>
     </div>
+    
 
     <script src="js/app.js"></script>
   </body>
