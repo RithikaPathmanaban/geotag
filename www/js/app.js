@@ -212,34 +212,57 @@
   }
 
   // --- Google Maps Navigation ---
-  function startNavigation(){
-    if(!currentPos){ alert('Current position unknown.'); return; }
-    if(pinnedPoints.length===0){ alert('No pinned points to navigate.'); return; }
-
-    const points = pinnedPoints.map(p => ({lat:p.lat,lng:p.lng}));
-    const optimized = optimizeRoute(currentPos, points);
-
-    if(optimized.length === 1) {
-      // Single destination -> auto-start navigation
-      const dest = `${optimized[0].lat},${optimized[0].lng}`;
-      const url = `google.navigation:q=${dest}&mode=d`;
-      if(window.cordova && cordova.InAppBrowser) cordova.InAppBrowser.open(url,'_system');
-      else window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`,'_blank');
+  function startNavigation() {
+    if (!currentPos) {
+      alert('Current position unknown.');
       return;
     }
-
-    // Multiple waypoints -> open Google Maps with all waypoints
+    if (pinnedPoints.length === 0) {
+      alert('No pinned points to navigate.');
+      return;
+    }
+  
+    const points = pinnedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
+    const optimized = optimizeRoute(currentPos, points);
+  
+    // Build origin/destination
     const origin = `${currentPos.lat},${currentPos.lng}`;
-    const destination = `${optimized[optimized.length-1].lat},${optimized[optimized.length-1].lng}`;
-    const waypoints = optimized.slice(0, optimized.length - 1).map(p => `${p.lat},${p.lng}`).join('|');
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`
-              + (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '')
-              + `&travelmode=driving`;
-
-    if(window.cordova && cordova.InAppBrowser) cordova.InAppBrowser.open(url,'_system');
-    else window.open(url,'_blank');
+    const destination = `${optimized[optimized.length - 1].lat},${optimized[optimized.length - 1].lng}`;
+    const waypoints = optimized
+      .slice(0, optimized.length - 1)
+      .map(p => `${p.lat},${p.lng}`)
+      .join('|');
+  
+    // Detect Android + Google Maps app
+    const isAndroid = /Android/i.test(navigator.userAgent);
+  
+    if (isAndroid && optimized.length === 1) {
+      // Use Google Maps app with direct navigation (Android only)
+      const dest = `${optimized[0].lat},${optimized[0].lng}`;
+      const url = `google.navigation:q=${dest}&mode=d`;
+  
+      if (window.cordova && cordova.InAppBrowser) {
+        cordova.InAppBrowser.open(url, '_system');
+      } else {
+        window.location.href = url;
+      }
+    } else {
+      // Fallback: normal web directions (works everywhere)
+      const url =
+        `https://www.google.com/maps/dir/?api=1` +
+        `&origin=${origin}` +
+        `&destination=${destination}` +
+        (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '') +
+        `&travelmode=driving`;
+  
+      if (window.cordova && cordova.InAppBrowser) {
+        cordova.InAppBrowser.open(url, '_system');
+      } else {
+        window.location.href = url;
+      }
+    }
   }
-
+  
   function wireEvents(){
     pinModeCheckbox.addEventListener('change', e=>{ pinMode=e.target.checked; });
     saveRouteBtn.addEventListener('click', saveCurrentRoute);
