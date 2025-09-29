@@ -277,23 +277,30 @@
   function startNavigation() {
     if (!currentPos) { alert('Current position unknown.'); return; }
     if (pinnedPoints.length === 0) { alert('No pinned points to navigate.'); return; }
-
+  
+    // Ensure optimization before navigation
+    const points = pinnedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
+    const optimized = optimizeRoute(currentPos, points);
+  
+    // Build route for Google Maps
     const origin = `${currentPos.lat},${currentPos.lng}`;
-    const destination = `${pinnedPoints[pinnedPoints.length - 1].lat},${pinnedPoints[pinnedPoints.length - 1].lng}`;
-    const waypoints = pinnedPoints.slice(0, pinnedPoints.length - 1).map(p => `${p.lat},${p.lng}`).join('|');
-
+    const destination = `${optimized[optimized.length - 1].lat},${optimized[optimized.length - 1].lng}`;
+    const waypoints = optimized.slice(0, optimized.length - 1)
+      .map(p => `${p.lat},${p.lng}`)
+      .join('|');
+  
     const params = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
     if (waypoints) params.append('waypoints', waypoints);
     const url = `https://www.google.com/maps/dir/?${params.toString()}`;
-
-    // Cordova InAppBrowser to open system handler if available
+  
+    // Open in system maps app (Cordova) or browser
     if (window.cordova && cordova.InAppBrowser) {
       cordova.InAppBrowser.open(url, '_system');
     } else {
       window.open(url, '_blank');
     }
   }
-
+  
   // --- Wire UI events ---
   function wireEvents() {
     pinModeCheckbox.addEventListener('change', (e) => { pinMode = e.target.checked; });
