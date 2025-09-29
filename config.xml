@@ -2,9 +2,7 @@
 <widget id="com.leno.geotag" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
   <name>GeoTagApp</name>
   <description>Sample Apache Cordova App</description>
-  <author email="dev@cordova.apache.org" href="https://cordova.apache.org">
-      Apache Cordova Team
-  </author>
+  <author email="dev@cordova.apache.org" href="https://cordova.apache.org">Apache Cordova Team</author>
 
   <content src="index.html" />
 
@@ -13,12 +11,15 @@
   <access origin="*" />
   <allow-navigation href="*" />
 
+  <!-- Plugins for location & dialogs -->
+  <plugin name="cordova-plugin-geolocation" spec="~4.1.0" />
+  <plugin name="cordova-plugin-dialogs" spec="~2.0.2" />
+  <plugin name="cordova.plugins.diagnostic" spec="~6.1.2" />
+
   <platform name="android">
     <edit-config file="AndroidManifest.xml" mode="merge" target="/manifest">
-      <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-      </manifest>
+      <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     </edit-config>
   </platform>
 </widget>
