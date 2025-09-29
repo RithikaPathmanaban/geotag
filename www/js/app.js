@@ -222,17 +222,26 @@
       return;
     }
   
-    // Optimize the pinned points
+    // Optimize pinned points
     const points = pinnedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
     const optimized = optimizeRoute(currentPos, points);
   
-    // Origin (current location)
+    // ✅ Case 1: Single stop → direct navigation
+    if (optimized.length === 1) {
+      const dest = `${optimized[0].lat},${optimized[0].lng}`;
+      const url = `google.navigation:q=${dest}&mode=d`;
+  
+      if (window.cordova && cordova.InAppBrowser) {
+        cordova.InAppBrowser.open(url, '_system');
+      } else {
+        window.location.href = url;
+      }
+      return;
+    }
+  
+    // ✅ Case 2: Multi-stop → directions with waypoints
     const origin = `${currentPos.lat},${currentPos.lng}`;
-  
-    // Destination = last optimized point
     const destination = `${optimized[optimized.length - 1].lat},${optimized[optimized.length - 1].lng}`;
-  
-    // Waypoints = all except the last point
     const waypoints = optimized
       .slice(0, optimized.length - 1)
       .map(p => `${p.lat},${p.lng}`)
@@ -246,13 +255,16 @@
       (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '') +
       `&travelmode=driving`;
   
-    // Open in Google Maps app if available, else browser
+    // Wrap in maps.app.goo.gl to force app handoff
+    const mapsUrl = `https://maps.app.goo.gl/?link=${encodeURIComponent(url)}`;
+  
     if (window.cordova && cordova.InAppBrowser) {
-      cordova.InAppBrowser.open(url, '_system');
+      cordova.InAppBrowser.open(mapsUrl, '_system');
     } else {
-      window.location.href = url;
+      window.location.href = mapsUrl;
     }
   }
+  
   
   function wireEvents(){
     pinModeCheckbox.addEventListener('change', e=>{ pinMode=e.target.checked; });
