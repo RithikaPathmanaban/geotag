@@ -1,37 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Road-Based Route Planner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-  <style>
-    body, html { margin:0; padding:0; height:100%; }
-    #map { height: 80%; width: 100%; }
-    #controlsPanel { padding: 10px; }
-    input[readonly] { width: 150px; margin-right: 10px; }
-    button { margin-right: 5px; }
-  </style>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: gap:; style-src 'self' 'unsafe-inline' https://unpkg.com; script-src 'self' 'unsafe-inline' https://unpkg.com https://router.project-osrm.org; img-src * data:; connect-src *;" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>GeoTag App - Leaflet + OSRM</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet Routing Machine CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="css/index.css" />
 </head>
 <body>
+  <div id="topbar">
+    <div id="coords">
+      <label>Latitude</label>
+      <input id="latInput" readonly />
+      <label>Longitude</label>
+      <input id="lngInput" readonly />
+    </div>
 
-<div id="map"></div>
-<div id="controlsPanel">
-  Lat: <input type="text" id="latField" readonly>
-  Lng: <input type="text" id="lngField" readonly>
-  <button id="pinModeBtn">Enable Pin Mode</button>
-  <button id="btnSaveRoute">Save Route</button>
-  <button id="btnClearTags">Clear Route</button>
-  <input type="text" id="routeNameInput" placeholder="Route Name">
-  <select id="savedRoutesDropdown">
-    <option value="">Select a saved route</option>
-  </select>
-  <button id="btnStartNavigation">Start Navigation</button>
-</div>
+    <div id="controls">
+      <label class="switch">
+        <input id="pinMode" type="checkbox" />
+        <span>Pin mode</span>
+      </label>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+      <input id="routeName" type="text" placeholder="Route name" />
 
-<script src="js/app.js"></script>
+      <button id="saveRoute">Save route</button>
+      <button id="clearPins">Clear</button>
+      <select id="savedRoutes"><option value="">-- Load saved route --</option></select>
+      <button id="deleteRoute" style="display:none;">Delete</button>
+      <button id="startNav" class="primary">Start navigation</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="footer">Notes: This app uses OpenStreetMap tiles and OSRM public router. No paid API key required.</div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Leaflet Routing Machine + OSRM backend -->
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+  <script src="js/app.js"></script>
 </body>
 </html>
