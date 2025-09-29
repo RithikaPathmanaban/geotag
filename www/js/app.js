@@ -212,20 +212,26 @@
   }
 
   // --- Google Maps Navigation ---
-  function startNavigation(){
+  function startNavigation() {
     if(!currentPos){ alert('Current position unknown.'); return; }
     if(pinnedPoints.length===0){ alert('No pinned points to navigate.'); return; }
-    const points=pinnedPoints.map(p=>({lat:p.lat,lng:p.lng}));
-    const optimized=optimizeRoute(currentPos, points);
-    const origin=`${currentPos.lat},${currentPos.lng}`;
-    const destination=`${optimized[optimized.length-1].lat},${optimized[optimized.length-1].lng}`;
-    const waypoints=optimized.slice(0,optimized.length-1).map(p=>`${p.lat},${p.lng}`).join('|');
-    const params=new URLSearchParams({api:'1',origin,destination,travelmode:'driving'});
-    if(waypoints) params.append('waypoints',waypoints);
-    const url=`https://www.google.com/maps/dir/?${params.toString()}`;
-    if(window.cordova && cordova.InAppBrowser){ cordova.InAppBrowser.open(url,'_system'); } 
-    else{ window.open(url,'_blank'); }
-  }
+
+    const points = pinnedPoints.map(p => ({lat:p.lat,lng:p.lng}));
+    const optimized = optimizeRoute(currentPos, points);
+
+    const destination = `${optimized[optimized.length-1].lat},${optimized[optimized.length-1].lng}`;
+    const waypoints = optimized.slice(0, optimized.length - 1).map(p => `${p.lat},${p.lng}`).join(',');
+
+    // Navigation intent URL
+    let url = `google.navigation:q=${destination}&mode=d`;
+    // For multiple waypoints, we cannot pass them here; Google Maps app only supports 1 destination in this intent.
+
+    if(window.cordova && cordova.InAppBrowser){
+        cordova.InAppBrowser.open(url,'_system');
+    } else {
+        window.open(url,'_blank'); // On desktop this won't auto-navigate
+    }
+}
 
   function wireEvents(){
     pinModeCheckbox.addEventListener('change', e=>{ pinMode=e.target.checked; });
