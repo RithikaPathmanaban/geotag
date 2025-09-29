@@ -222,44 +222,35 @@
       return;
     }
   
+    // Optimize the pinned points
     const points = pinnedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
     const optimized = optimizeRoute(currentPos, points);
   
-    // Build origin/destination
+    // Origin (current location)
     const origin = `${currentPos.lat},${currentPos.lng}`;
+  
+    // Destination = last optimized point
     const destination = `${optimized[optimized.length - 1].lat},${optimized[optimized.length - 1].lng}`;
+  
+    // Waypoints = all except the last point
     const waypoints = optimized
       .slice(0, optimized.length - 1)
       .map(p => `${p.lat},${p.lng}`)
       .join('|');
   
-    // Detect Android + Google Maps app
-    const isAndroid = /Android/i.test(navigator.userAgent);
+    // Build Google Maps directions URL
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&origin=${origin}` +
+      `&destination=${destination}` +
+      (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '') +
+      `&travelmode=driving`;
   
-    if (isAndroid && optimized.length === 1) {
-      // Use Google Maps app with direct navigation (Android only)
-      const dest = `${optimized[0].lat},${optimized[0].lng}`;
-      const url = `google.navigation:q=${dest}&mode=d`;
-  
-      if (window.cordova && cordova.InAppBrowser) {
-        cordova.InAppBrowser.open(url, '_system');
-      } else {
-        window.location.href = url;
-      }
+    // Open in Google Maps app if available, else browser
+    if (window.cordova && cordova.InAppBrowser) {
+      cordova.InAppBrowser.open(url, '_system');
     } else {
-      // Fallback: normal web directions (works everywhere)
-      const url =
-        `https://www.google.com/maps/dir/?api=1` +
-        `&origin=${origin}` +
-        `&destination=${destination}` +
-        (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '') +
-        `&travelmode=driving`;
-  
-      if (window.cordova && cordova.InAppBrowser) {
-        cordova.InAppBrowser.open(url, '_system');
-      } else {
-        window.location.href = url;
-      }
+      window.location.href = url;
     }
   }
   
