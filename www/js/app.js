@@ -179,9 +179,9 @@
     }).addTo(map);
 
     pinnedPoints.forEach(p=>{ if(p.marker)p.marker.remove(); });
-    pinnedPoints=optimized.map((p,idx)=>{
+    pinnedPoints=optimized.map((p,idx)=>{ 
       const m=L.marker([p.lat,p.lng]).addTo(map).bindPopup(`Pin ${idx+1}`);
-      return {lat:p.lat,lng:p.lng,marker:m};
+      return {lat:p.lat,lng:p.lng,marker:m}; 
     });
   }
 
@@ -212,26 +212,33 @@
   }
 
   // --- Google Maps Navigation ---
-  function startNavigation() {
+  function startNavigation(){
     if(!currentPos){ alert('Current position unknown.'); return; }
     if(pinnedPoints.length===0){ alert('No pinned points to navigate.'); return; }
 
     const points = pinnedPoints.map(p => ({lat:p.lat,lng:p.lng}));
     const optimized = optimizeRoute(currentPos, points);
 
-    const destination = `${optimized[optimized.length-1].lat},${optimized[optimized.length-1].lng}`;
-    const waypoints = optimized.slice(0, optimized.length - 1).map(p => `${p.lat},${p.lng}`).join(',');
-
-    // Navigation intent URL
-    let url = `google.navigation:q=${destination}&mode=d`;
-    // For multiple waypoints, we cannot pass them here; Google Maps app only supports 1 destination in this intent.
-
-    if(window.cordova && cordova.InAppBrowser){
-        cordova.InAppBrowser.open(url,'_system');
-    } else {
-        window.open(url,'_blank'); // On desktop this won't auto-navigate
+    if(optimized.length === 1) {
+      // Single destination -> auto-start navigation
+      const dest = `${optimized[0].lat},${optimized[0].lng}`;
+      const url = `google.navigation:q=${dest}&mode=d`;
+      if(window.cordova && cordova.InAppBrowser) cordova.InAppBrowser.open(url,'_system');
+      else window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`,'_blank');
+      return;
     }
-}
+
+    // Multiple waypoints -> open Google Maps with all waypoints
+    const origin = `${currentPos.lat},${currentPos.lng}`;
+    const destination = `${optimized[optimized.length-1].lat},${optimized[optimized.length-1].lng}`;
+    const waypoints = optimized.slice(0, optimized.length - 1).map(p => `${p.lat},${p.lng}`).join('|');
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`
+              + (waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : '')
+              + `&travelmode=driving`;
+
+    if(window.cordova && cordova.InAppBrowser) cordova.InAppBrowser.open(url,'_system');
+    else window.open(url,'_blank');
+  }
 
   function wireEvents(){
     pinModeCheckbox.addEventListener('change', e=>{ pinMode=e.target.checked; });
