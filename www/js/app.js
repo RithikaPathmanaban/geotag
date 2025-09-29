@@ -278,22 +278,28 @@
     if (!currentPos) { alert('Current position unknown.'); return; }
     if (pinnedPoints.length === 0) { alert('No pinned points to navigate.'); return; }
   
-    // Ensure optimization before navigation
+    // Optimize route before sending to Google Maps
     const points = pinnedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
     const optimized = optimizeRoute(currentPos, points);
   
-    // Build route for Google Maps
+    // Build Google Maps navigation URL
     const origin = `${currentPos.lat},${currentPos.lng}`;
     const destination = `${optimized[optimized.length - 1].lat},${optimized[optimized.length - 1].lng}`;
     const waypoints = optimized.slice(0, optimized.length - 1)
       .map(p => `${p.lat},${p.lng}`)
       .join('|');
   
-    const params = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
+    const params = new URLSearchParams({
+      api: '1',
+      origin,
+      destination,
+      travelmode: 'driving'
+    });
     if (waypoints) params.append('waypoints', waypoints);
+  
     const url = `https://www.google.com/maps/dir/?${params.toString()}`;
   
-    // Open in system maps app (Cordova) or browser
+    // Open Google Maps app (preferred) or browser
     if (window.cordova && cordova.InAppBrowser) {
       cordova.InAppBrowser.open(url, '_system');
     } else {
