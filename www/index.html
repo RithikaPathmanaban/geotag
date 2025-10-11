@@ -1,37 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: gap:; style-src 'self' 'unsafe-inline' https://unpkg.com; script-src 'self' 'unsafe-inline' https://unpkg.com https://router.project-osrm.org; img-src * data:; connect-src *;" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>GeoTag App</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GeoTag Route</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+html, body, #map { height: 100%; margin: 0; padding: 0; }
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
-  <link rel="stylesheet" href="css/index.css" />
+/* === Floating Lat/Lon Display === */
+.location-bar {
+  position: absolute;
+  bottom: 10px;
+  left: 7px;
+  z-index: 1001;
+  background: rgba(255,255,255,0.95);
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+.location-bar label { 
+  font-weight: 600; 
+  font-size: 16px; 
+  color: #333; 
+  margin-right: 4px;
+}
+.location-bar input { 
+  width: 130px; 
+  border: none; 
+  font-size: 16px; 
+  background: transparent; 
+  text-align: right; 
+  font-weight: 600;
+  color: #1d3557;
+}
+
+/* === Collapsible Controls Panel === */
+.controls-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(255,255,255,0.95);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  width: 250px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  transition: all 0.3s ease;
+}
+.controls-panel.hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
+
+/* === Toggle Controls Button (moved lower) === */
+.toggle-controls-btn {
+  position: absolute;
+  top: 100px;        /* moved further down from 65px */
+  left: 15px;
+  z-index: 1002;
+  background: #3a86ff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.controls-panel label { font-size: 13px; font-weight: 600; color:#444; margin-top:10px; display:block; }
+.controls-panel input, .controls-panel select {
+  width:100%;
+  padding:6px 10px;
+  font-size:13px;
+  border-radius:8px;
+  border:1.5px solid #ccc;
+  margin-bottom:6px;
+  box-sizing:border-box;
+}
+
+.button-group { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+.controls-panel button {
+  flex:1;
+  padding:10px 0;
+  border:none;
+  border-radius:8px;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+  font-size:14px;
+}
+
+#btnGetLocation,#btnTagLocation { background:#3a86ff; }
+#btnClearTags { background:#e63946; width:100%; margin-top:6px; }
+#btnStartRoute { background:#3a86ff; width:100%; margin-top:6px; }
+#btnSaveRoute { background:#2a9d8f; padding:8px; }
+.save-route-group { display:flex; gap:6px; margin-top:6px; }
+#pinModeBtn {
+  background:#ffbe0b;
+  color:#000;
+  margin-top:6px;
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  font-weight:600;
+}
+
+/* === Floating Recenter Button (moved slightly upward) === */
+.recenter-btn {
+  position: absolute;
+  bottom: 80px;
+  right: 20px;
+  z-index: 1001;
+  background: #3a86ff;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.25s ease;
+}
+.recenter-btn:hover {
+  background: #265dca;
+  transform: translateY(-2px);
+}
+.recenter-btn:active {
+  transform: scale(0.95);
+}
+</style>
 </head>
 <body>
-  <div id="topbar">
-    <div id="coords">
-      <label>Latitude</label><input id="latInput" readonly />
-      <label>Longitude</label><input id="lngInput" readonly />
-    </div>
-    <div id="controls">
-      <label class="switch"><input id="pinMode" type="checkbox" /><span>Pin mode</span></label>
-      <input id="routeName" type="text" placeholder="Route name" />
-      <button id="saveRoute">Save route</button>
-      <button id="clearPins">Clear</button>
-      <select id="savedRoutes"><option value="">-- Load saved route --</option></select>
-      <button id="deleteRoute" style="display:none;">Delete</button>
-      <button id="startNav" class="primary">Start navigation</button>
-    </div>
+
+<!-- Toggle Controls Button -->
+<button class="toggle-controls-btn" id="toggleControlsBtn">☰ Controls</button>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Floating Recenter Button -->
+<button id="btnRecenter" class="recenter-btn" title="Recenter Map">
+  📍 Recenter
+</button>
+
+<!-- Always Visible Lat/Lon Bar -->
+<div class="location-bar">
+  <label>Lat:</label>
+  <input id="latField" readonly />
+  <label>Lng:</label>
+  <input id="lngField" readonly />
+</div>
+
+<!-- Collapsible Controls -->
+<div class="controls-panel" id="controlsPanel">
+  <div class="button-group">
+    <button id="btnGetLocation">Get Current Location</button>
+    <button id="btnTagLocation">Tag Location</button>
+  </div>
+  <button id="btnClearTags">Clear Tagged Locations</button>
+  <button id="btnStartRoute">Start Route</button>
+  <button id="pinModeBtn">Enable Pin Mode</button>
+
+  <div class="save-route-group">
+    <input type="text" id="routeNameInput" placeholder="Enter route name"/>
+    <button id="btnSaveRoute">Save</button>
   </div>
 
-  <div id="map"></div>
-  <div id="footer">Notes: This app uses OpenStreetMap tiles and OSRM public router. No paid API key required.</div>
+  <label for="savedRoutesDropdown">Saved Routes</label>
+  <select id="savedRoutesDropdown">
+    <option value="">Select a saved route</option>
+  </select>
+</div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
-  <script src="js/app.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="cordova.js"></script>
+<script src="js/app.js"></script>
+
 </body>
 </html>
